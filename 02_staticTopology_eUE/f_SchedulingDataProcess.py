@@ -31,10 +31,10 @@ def input_extract_for_cost(model_input):
     """
     # Parameters:
     IAB_num = 10
-    feature_num = 4
+    feature_num = 6
     batch_size = model_input.shape[0]
     data_len = int(
-        model_input.shape[1] / (IAB_num * 2))  # 2 because just half the data is neccesery (efficiency or CQI)
+        model_input.shape[1] / (IAB_num * 3))  # 2 because just half the data is neccesery (efficiency or CQI)
     # initialize
     efficiency_batch_mat = torch.zeros(batch_size, IAB_num, data_len)
     capacity_batch_mat = torch.zeros(batch_size, IAB_num, data_len)
@@ -45,14 +45,15 @@ def input_extract_for_cost(model_input):
         one_batch_input = model_input[i]
         one_batch_input = one_batch_input.reshape(-1, feature_num)
         # capacity extract from input
-        capacity = torch.cat((one_batch_input[:, 0:1], one_batch_input[:, 2:3]), dim=1)
+        capacity = torch.cat((one_batch_input[:, 0:1], one_batch_input[:, 3:4]), dim=1)
         capacity = torch.reshape(capacity, (10, -1))
 
-        # CQI extract from input
-        CQI = torch.cat((one_batch_input[:, 1:2], one_batch_input[:, 3:4]), dim=1)
-        CQI = torch.reshape(CQI, (10, -1))
+        # efficiency extract from input
+        efficiency = torch.cat((one_batch_input[:, 1:2], one_batch_input[:, 4:5]), dim=1)
+        efficiency = torch.reshape(efficiency, (10, -1))
         # efficiency calculate from CQI & CQI2efficiency dict
-        efficiency = torch.tensor([[rp.CQI2efficiency[int(allocation)] for allocation in IAB_out] for IAB_out in CQI])
+        # efficiency = torch.tensor([[rp.CQI2efficiency[int(allocation)] for allocation in IAB_out] for IAB_out in CQI])
+        # efficiency = CQI
 
         # # efficiency extract from input
         # efficiency = torch.cat((one_batch_input[:, 1:2], one_batch_input[:, 3:4]), dim=1)
@@ -61,7 +62,6 @@ def input_extract_for_cost(model_input):
         # save resultes
         capacity_batch_mat[i, :, :] = capacity
         efficiency_batch_mat[i, :, :] = efficiency
-
     return efficiency_batch_mat, capacity_batch_mat
 
 
@@ -78,8 +78,8 @@ def label_extractor(Data_UEbatch, Data_IABbatch):
     # print(IAB_capacity)
     efficiency = torch.cat((UE_efficiency, IAB_efficiency), dim=2)
     capacity = torch.cat((UE_capacity, IAB_capacity), dim=2)
-    efficiency_index = torch.where(efficiency == 0)  # find index where efficiency == 0
-    efficiency[efficiency_index] = rp.eps  # replies efficiency == 0 in eps. Prevents division by zero
+    # efficiency_index = torch.where(efficiency == 0)  # find index where efficiency == 0
+    # efficiency[efficiency_index] = rp.eps  # replies efficiency == 0 in eps. Prevents division by zero
     label = (capacity / efficiency)
     label = (label / rp.Total_BW) * 1e6  # [MHZ]
     return label
@@ -107,72 +107,6 @@ def usher(UEs_data, sample_number):
         sorted_mat[idx] = in_mat[arg]
     sorted_vec = sorted_mat.reshape((1, -1))  # this reshape is unnecessary
     return sorted_args_by_iab, sorted_vec, sorted_mat
-
-
-def get_batch(UE_db, IAB_db, r_min, r_max):
-    """
-    take a desirable number of samples from the two databases and rearrange them (with the help from the usher function) to match the input of the NN model.
-    :param UE_db:
-    :param IAB_db:
-    :param r_min:
-    :param r_max:
-    :return:
-    """
-    # # Database permutation:
-    # p = np.random.permutation(len(UE_db))
-    # UE_db = UE_db[p]
-    # IAB_db = IAB_db[p]
-
-    # Parameters:
-    # UE_num = 100
-    # IAB_num = 10
-    # maxUEperBS = 11
-    # feature_num = 4
-
-    # initialize:
-    UE_batch = torch.zeros((r_max - r_min, rp.IAB_num * rp.maxUEperBS * rp.feature_num_old))
-    IAB_batch = torch.zeros((r_max - r_min, rp.IAB_num * rp.feature_num_old))
-    ueNumInIAB = torch.zeros((r_max - r_min, rp.IAB_num))
-    IABNumReq = torch.zeros((r_max - r_min, rp.IAB_num))
-    # create batch:
-    for index, i in enumerate(range(r_min, r_max)):
-        _, _, UE_mat = usher(UE_db, i)
-        # Extended UE input to match maximum of 'maxUEperBS' UE per IAB
-        UE_mat_extend = np.zeros((rp.IAB_num * rp.maxUEperBS, 5))
-        line_index = 0
-        ue_counter = 0
-        for i_ue, _ in enumerate(UE_mat_extend):
-            # Check if the loop go to the next IAB, in this case start counting UE from 0 (new IAB)
-            if 101 + (i_ue // rp.maxUEperBS) > UE_mat_extend[i_ue-1, 0]:
-                ue_counter = 0
-            UE_mat_extend[i_ue, 0] = 101 + (i_ue // rp.maxUEperBS)  # set IAB number in UE_mat_extend
-            # If there is data in the UE of the corresponding IAB (in the line) - copy to UE_mat_extend
-            if UE_mat[line_index, 0] == UE_mat_extend[i_ue, 0]:
-                UE_mat_extend[i_ue, 1:] = UE_mat[line_index, 1:]
-                line_index = line_index + 1
-                ue_counter = ue_counter + 1
-                ueNumInIAB[index, int((i_ue // rp.maxUEperBS))] = ue_counter
-                if line_index == rp.UE_num:
-                    break
-        UE_mat_input = UE_mat_extend[:, 1:].reshape(-1)
-        UE_batch[index, :] = torch.from_numpy(UE_mat_input)
-
-        IAB_mat = IAB_db[i]
-        IAB_mat = IAB_mat.reshape((-1, 5))
-        IAB_mat_input = IAB_mat[:, 1:].reshape(-1)
-        IAB_batch[index, :] = torch.from_numpy(IAB_mat_input)
-
-    # Generate UE index Vector
-    UeIndexVec = torch.zeros((r_max - r_min, rp.IAB_num, rp.maxUEperBS))
-    UeIndexVec_re = torch.zeros((r_max - r_min, rp.IAB_num, rp.maxUEperBS*2))
-    for lineIdx, line in enumerate(ueNumInIAB):
-        for numIdx, num in enumerate(line):
-            UeIndexVec[lineIdx, numIdx, 0:int(num)] = 1
-
-    UeIndexVec_re = torch.repeat_interleave(UeIndexVec, 2, dim=2)
-    # print(UeIndexVec[0, 0, :])
-    # print(UeIndexVec_re[0, 0, :])
-    return UE_batch, IAB_batch, UeIndexVec_re
 
 
 def cqi2eff_in_matrix_col(mat, col):
@@ -205,7 +139,7 @@ def add_label_feature(mat, cqi_col_1, cqi_col_2):
     return mat
 
 
-def get_batch_new(UE_db, IAB_db, r_min, r_max):
+def get_batch(UE_db, IAB_db, r_min, r_max):
     """
     take a desirable number of samples from the two databases and rearrange them (with the help from the usher function)
      to match the input of the NN model.

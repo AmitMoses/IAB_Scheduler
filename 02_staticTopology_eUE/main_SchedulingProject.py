@@ -44,13 +44,11 @@ def train_model(TrainData_IAB, TrainData_UE, ValidData_IAB, ValidData_UE, model,
 
         for i in tqdm(range(0, TrainData_UE.shape[0] - minibatch_size, minibatch_size)):
             # Feed forward to get the logits
-            Train_UEbatch, Train_IABbatch, Train_UEidx = datap.get_batch(TrainData_UE, TrainData_IAB, i,
-                                                                         i + minibatch_size)
-            Train_UEbatch_n, Train_IABbatch_n, Train_UEidx_n = datap.get_batch_new(np.copy(TrainData_UE), np.copy(TrainData_IAB), i,
+            Train_UEbatch, Train_IABbatch, Train_UEidx = datap.get_batch(np.copy(TrainData_UE), np.copy(TrainData_IAB), i,
                                                                                    i + minibatch_size)
 
             label_Train = datap.label_extractor(Train_UEbatch, Train_IABbatch)
-            inputModel = torch.cat((Train_IABbatch_n, Train_UEbatch_n), dim=1)
+            inputModel = torch.cat((Train_IABbatch, Train_UEbatch), dim=1)
 
             # temp = label_Train_norm.view(minibatch_size, -1)
             # inputModel = temp
@@ -76,10 +74,9 @@ def train_model(TrainData_IAB, TrainData_UE, ValidData_IAB, ValidData_UE, model,
             optimizer.step()
 
         # Compute the validation accuracy & loss
-        Valid_UEbatch, Valid_IABbatch, Valid_UEidx = datap.get_batch(ValidData_UE, ValidData_IAB, 0, minibatch_size)
-        Valid_UEbatch_n, Valid_IABbatch_n, Valid_UEidx_n = datap.get_batch_new(np.copy(ValidData_UE), np.copy(ValidData_IAB), 0, minibatch_size)
+        Valid_UEbatch, Valid_IABbatch, Valid_UEidx = datap.get_batch(np.copy(ValidData_UE), np.copy(ValidData_IAB), 0, minibatch_size)
         label_Valid = datap.label_extractor(Valid_UEbatch, Valid_IABbatch)
-        input_val = torch.cat((Valid_IABbatch_n, Valid_UEbatch_n), dim=1)
+        input_val = torch.cat((Valid_IABbatch, Valid_UEbatch), dim=1)
 
         # temp_val = label_Valid_norm.view(minibatch_size, -1)
         # input_val = temp_val

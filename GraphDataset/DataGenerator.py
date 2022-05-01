@@ -1,44 +1,25 @@
-import networkx as nx
+
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
-import torch.nn.functional as F
 from glob import glob
 import torch
 import numpy as np
-import os
 from tqdm import tqdm
-import torch.nn as nn
-import torch_geometric
 from torch_geometric.data import Dataset, Data
-from torch_geometric.nn import GCNConv
-from torch_geometric.loader import DataLoader
 import os
+import sys
+sys.path.insert(1, '../02_staticTopology_eUE/')
+import p_RadioParameters as rp
 
-CQI2efficiency = {
-    1: 0.1523,
-    2: 0.3770,
-    3: 0.8770,
-    4: 1.4766,
-    5: 1.9141,
-    6: 2.4063,
-    7: 2.7305,
-    8: 3.3223,
-    9: 3.9023,
-    10: 4.5234,
-    11: 5.1152,
-    12: 5.5547,
-    13: 6.2266,
-    14: 6.9141,
-    15: 7.4063
-}
 
 
 def load(processed_dir):
+    print('Loading...')
     dataset = []
     all_data_paths = glob(processed_dir + '*.pt')
-    for index, datapoint in enumerate(all_data_paths):
+    all_data_paths.sort()
+    print()
+    for index, datapoint in tqdm(enumerate(all_data_paths), total=len(all_data_paths)):
+        temp = datapoint
         data = torch.load(datapoint)
         data.edge_index = data.edge_index.long()
         dataset.append(data)
@@ -48,9 +29,11 @@ def load(processed_dir):
 
 
 def process(raw_paths, processed_dir, test=False):
-    dataset = []
+    # dataset = []
+    print('Processing...')
     all_data_paths = glob(raw_paths + '*.csv')
     for index, datapoint in tqdm(enumerate(all_data_paths), total=len(all_data_paths)):
+        datapoint_num = get_iteration_index(datapoint)
         # data_frame = pd.read_csv(datapoint)
         # data_frame = data_frame.fillna(0)
         data_frame = csv2frame(datapoint)
@@ -75,13 +58,28 @@ def process(raw_paths, processed_dir, test=False):
         if test:
             torch.save(data,
                        os.path.join(processed_dir,
-                                    f'data_test_{index}.pt'))
+                                    f'data_test_{datapoint_num}.pt'))
         else:
             torch.save(data,
                        os.path.join(processed_dir,
-                                    f'data_{index}.pt'))
-        dataset.append(data)
+                                    f'data_{datapoint_num}.pt'))
+        # dataset.append(data)
+    dataset = load(processed_dir)
     return dataset
+
+
+def get_iteration_index(path):
+    index = str(int(path.split('/')[-1].split('.')[0][9:]) - 1)
+    if len(index) == 1:
+        pad_index = '000' + index
+    elif len(index) == 2:
+        pad_index = '00' + index
+    elif len(index) == 3:
+        pad_index = '0' + index
+    else:
+        pad_index = index
+    # print(f'index: {index} | pad_index: {pad_index}')
+    return pad_index
 
 
 def csv2frame(path):
@@ -107,7 +105,7 @@ def _create_node_features_link(df):
 
     edge_CQI = torch.tensor(df.CQI).view(1, -1)
     # print(edge_CQI.shape)
-    edge_eff = torch.tensor([CQI2efficiency[int(index)] for index in edge_CQI.T]).view(1, -1)
+    edge_eff = torch.tensor([rp.CQI2efficiency[int(index)] for index in edge_CQI.T]).view(1, -1)
     edge_Capacity = torch.tensor(df.Capacity).view(1, -1)
     edge_bw = edge_Capacity/edge_eff
 
@@ -218,10 +216,10 @@ def main():
     raw_paths = main_path + '/data/raw/'
     all_data_paths = glob(raw_paths + '*.csv')
     processed_dir = main_path + '/data/processed/'
-    Gdataset = process(raw_paths, processed_dir)
-    # Gdataset = load(processed_dir)
-    print(Gdataset[14].x)
-    print(Gdataset[14].y)
+    # Gdataset = process(raw_paths, processed_dir)
+    Gdataset = load(processed_dir)
+    print(Gdataset[0].x)
+    print(Gdataset[0].y)
     print(torch.sum(Gdataset[14].y))
     # print(len(Gdataset))
 
