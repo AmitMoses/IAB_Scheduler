@@ -7,7 +7,7 @@ import NN_model as nnmod
 import f_nnAnzlysis as nna
 import f_SchedulingDataProcess as datap
 import p_RadioParameters as rp
-import main_SchedulingProject_2 as cost
+import main_SchedulingProject as cost
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 

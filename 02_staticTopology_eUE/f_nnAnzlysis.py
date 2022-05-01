@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import p_RadioParameters as rp
 import f_SchedulingDataProcess as datap
-import main_SchedulingProject_2 as cost
+import main_SchedulingProject as cost
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 

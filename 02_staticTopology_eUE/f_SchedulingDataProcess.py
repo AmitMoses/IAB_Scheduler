@@ -207,7 +207,8 @@ def add_label_feature(mat, cqi_col_1, cqi_col_2):
 
 def get_batch_new(UE_db, IAB_db, r_min, r_max):
     """
-    take a desirable number of samples from the two databases and rearrange them (with the help from the usher function) to match the input of the NN model.
+    take a desirable number of samples from the two databases and rearrange them (with the help from the usher function)
+     to match the input of the NN model.
     :param UE_db:
     :param IAB_db:
     :param r_min:
