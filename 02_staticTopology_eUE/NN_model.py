@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import p_RadioParameters as rp
 from torch_geometric.nn import GCNConv
+import torch.nn.functional as F
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -787,15 +788,6 @@ class ResourceAllocation_GNN(nn.Module):
             nn.Softmax(dim=1)
         )
 
-        self.big_gnn = nn.Sequential(
-            GCNConv(5, 16),
-            nn.GELU(),
-            GCNConv(16, 1),
-            nn.GELU(),
-            nn.Linear(10, 10),
-            nn.Softmax(dim=1)
-        )
-
         self.small = nn.Sequential(
             nn.Linear(small_input_size, small_n_hidden),
             nn.GELU(),
@@ -818,12 +810,34 @@ class ResourceAllocation_GNN(nn.Module):
 
         self.batchsize = 0  # initial value. will change in the beginning of the forward
 
+        # GCN layesr
+        self.conv1 = GCNConv(7, 16)
+        self.conv2 = GCNConv(16, 16)
+        self.fc1 = nn.Linear(16*10, 10)
+        self.out = nn.Softmax(dim=1)
+
     def big_model(self, input_iab):
         input_iab = torch.reshape(input_iab, (self.batchsize, -1, rp.train_feature))
         input_iab = self.embed(input_iab)
         input_iab = input_iab.view(-1, 10 * self.embbeing_size)
-        output = self.big(input_iab)
+        output = self.big_gnn(input_iab)
         return output
+
+    def big_gcn(self, data, batch_size):
+        x, edge_index = data.x, data.edge_index
+        edge_index = edge_index.long()
+        # Layer 1
+        x = self.conv1(x, edge_index)
+        x = F.gelu(x)
+        # Layer 2
+        x = self.conv2(x, edge_index)
+        x = F.gelu(x)
+        # Layer 3
+        x = x.view((batch_size, -1))
+        x = self.fc1(x)
+        # Output Layer
+        x = self.out(x)
+        return x
 
     def small_model(self, input_ue, input_iab, input_Indicator, IABInd):
         input_ue = torch.reshape(input_ue, (self.batchsize, -1, rp.train_feature))
@@ -841,14 +855,14 @@ class ResourceAllocation_GNN(nn.Module):
         output = ((input_ue * input_Indicator) / NormFactor) * input_iab
         return output
 
-    def forward(self, x, UEIdx):
+    def forward(self, x, UEIdx, iab_graph):
         self.batchsize = x.shape[0]
         input_feature = rp.train_feature * rp.maxUEperBS
-        x_iabs = x[:, 0:60]
+        # x_iabs = x[:, 0:60]
         x_ues = x[:, 60:]
 
-
-        x_iabs = self.big_model(x_iabs)
+        # x_iabs = self.big_model(x_iabs)
+        x_iabs = self.big_gcn(iab_graph, self.batchsize)
         x_ues = x_ues.view(-1, rp.train_feature * rp.maxUEperBS * rp.IAB_num)
         y = torch.zeros(self.batchsize, rp.IAB_num, (rp.maxUEperBS + rp.backhaul_num)*2)
 
