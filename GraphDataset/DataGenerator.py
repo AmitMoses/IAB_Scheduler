@@ -216,8 +216,8 @@ def main():
     raw_paths = main_path + '/data/raw/'
     all_data_paths = glob(raw_paths + '*.csv')
     processed_dir = main_path + '/data/processed/'
-    # Gdataset = process(raw_paths, processed_dir)
-    Gdataset = load(processed_dir)
+    Gdataset = process(raw_paths, processed_dir)
+    # Gdataset = load(processed_dir)
     print(Gdataset[0].x)
     print(Gdataset[0].y)
     print(torch.sum(Gdataset[14].y))

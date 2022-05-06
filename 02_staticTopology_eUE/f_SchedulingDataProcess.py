@@ -3,6 +3,10 @@ __author__ = 'Amit'
 import numpy as np
 import torch
 import p_RadioParameters as rp
+import pandas as pd
+import sys
+sys.path.insert(1, '../GraphDataset/')
+import DataGenerator as data_gen
 
 
 def input_extract_for_cost(model_input):
@@ -166,6 +170,8 @@ def get_batch(UE_db, IAB_db, r_min, r_max):
     ueNumInIAB_ = torch.zeros((r_max - r_min, rp.IAB_num))
     IABNumReq_ = torch.zeros((r_max - r_min, rp.IAB_num))
     # create batch:
+    # print(UE_db)
+    # print(UE_db.shape)
     for index, i in enumerate(range(r_min, r_max)):
         _, _, UE_mat_ = usher(UE_db, i)
 
@@ -247,3 +253,36 @@ def capacity_cost(output, Data_UEbatch, Data_IABbatch):
     CapacityCost = torch.mean(CapacityCost)
 
     return CapacityCost
+
+
+def data_split(dataset):
+    """
+    Split the dataset into train, validation and test.
+    :param dataset: input dataset, which the iteration number is in the first dimension
+    :return: train_dataset, valid_dataset, test_dataset
+    """
+    train_dataset = dataset[0:8000]
+    valid_dataset = dataset[8000:9000]
+    test_dataset = dataset[9000:10000]
+
+    return train_dataset, valid_dataset, test_dataset
+
+
+def load_datasets(path_ue_table, path_iab_table, raw_path_iab_graph, processed_path_iab_graph, is_generate=False):
+    """
+    :param is_generate: load for process the graph dataset
+    :param path_ue_table: directory path for UE table dataset
+    :param path_iab_table: directory path for IAB table dataset
+    :param raw_path_iab_graph: directory path for UE PyTorch Geometric (graph) dataset
+    :param processed_path_iab_graph: directory path for IAB PyTorch Geometric (graph) dataset
+    :return: load the datasets
+    """
+    UE_table_database = pd.read_csv(path_ue_table)
+    IAB_table_database = pd.read_csv(path_iab_table)
+
+    if is_generate:
+        IAB_graph_database = data_gen.process(raw_path_iab_graph, processed_path_iab_graph)
+    else:
+        IAB_graph_database = data_gen.load(processed_path_iab_graph)
+
+    return UE_table_database, IAB_table_database, IAB_graph_database
