@@ -213,9 +213,9 @@ def nan_check_raw(paths):
 
 def main():
     main_path = os.path.dirname(os.path.abspath(__file__))
-    raw_paths = main_path + '/data/raw/'
+    raw_paths = main_path + '/data_v2/raw/'
     all_data_paths = glob(raw_paths + '*.csv')
-    processed_dir = main_path + '/data/processed/'
+    processed_dir = main_path + '/data_v2/processed/'
     Gdataset = process(raw_paths, processed_dir)
     # Gdataset = load(processed_dir)
     print(Gdataset[0].x)

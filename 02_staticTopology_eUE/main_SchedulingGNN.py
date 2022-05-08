@@ -18,7 +18,6 @@ import os
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-
 def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
 
     # print('train function input')
@@ -38,9 +37,9 @@ def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
     # print(dataset_ue.shape)
     # print(dataset_iab.shape)
 
-    train_ue, valid_ue, _ = datap.data_split(np.array(dataset_ue))
-    train_iab, valid_iab, _ = datap.data_split(np.array(dataset_iab))
-    train_iab_graph, valid_iab_graph, _ = datap.data_split(dataset_graph_iab)
+    train_ue, valid_ue, _ = datap.data_split(np.array(dataset_ue), is_all=False)
+    train_iab, valid_iab, _ = datap.data_split(np.array(dataset_iab), is_all=False)
+    train_iab_graph, valid_iab_graph, _ = datap.data_split(dataset_graph_iab, is_all=False)
 
     # Training process
     for epoch in range(config['epochs']):
@@ -179,10 +178,15 @@ def main():
     main_path = '../'
     # main_path = '/common_space_docker/IAB_Scheduler'
 
-    raw_paths_IAB_graph = main_path + '/GraphDataset/data/raw/'
-    processed_dir_IAB_graph = main_path + '/GraphDataset/data/processed/'
-    path_UE = main_path + '/database/DynamicTopology/e6_m20_d3/UE_database.csv'
-    path_IAB = main_path + '/database/DynamicTopology/e6_m20_d3/IAB_database.csv'
+    # raw_paths_IAB_graph = main_path + '/GraphDataset/data/raw/'
+    # processed_dir_IAB_graph = main_path + '/GraphDataset/data/processed/'
+    # path_UE = main_path + '/database/DynamicTopology/e6_m20_d3/UE_database.csv'
+    # path_IAB = main_path + '/database/DynamicTopology/e6_m20_d3/IAB_database.csv'
+
+    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v2/raw/'
+    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v2/processed/'
+    path_UE = main_path + '/database/DynamicTopology/data_v2/UE_database.csv'
+    path_IAB = main_path + '/database/DynamicTopology/data_v2/IAB_database.csv'
 
     UE_table_database, IAB_table_database, IAB_graph_database = \
         datap.load_datasets(path_ue_table=path_UE,
@@ -224,14 +228,6 @@ def main():
 if __name__ == '__main__':
     main()
 
-# minibatch_size = 10 | learning_rate = 0.0001
-# [Epoch]: 96, [Train Loss]: 3.699E-07 , [Train Capacity Loss]: 1.543766 Mbps | [Valid Loss]: 6.354E-07 , [Valid Capacity Loss]: 2.373470 Mbps
-
-# minibatch_size = 50 | learning_rate = 1e-3
-# [Epoch]: 68, [Train Loss]: 1.112E-06 , [Train Capacity Loss]: 4.249455 Mbps | [Valid Loss]: 1.367E-06 , [Valid Capacity Loss]: 5.364619 Mbps
-
-# minibatch_size = 10 | learning_rate = 0.0001 | weight_decay = 1e-10
-# [Epoch]: 109, [Train Loss]: 1.897E-08 , [Train Capacity Loss]: 1.388600 Mbps | [Valid Loss]: 1.280E-07 , [Valid Capacity Loss]: 1.960467 Mbps
 
 # gnn_V2
 # minibatch_size = 10 | learning_rate = 0.0001 | weight_decay = 1e-10
@@ -241,7 +237,7 @@ if __name__ == '__main__':
 
 
 # gnn_V3
-# [Epoch]: 82, [Train Loss]: 3.065E-07 , [Train Capacity Loss]: 1.622206 Mbps | [Valid Loss]: 3.079E-07 , [Valid Capacity Loss]: 2.641486 Mbps
-# [Epoch]: 87, [Train Loss]: 2.871E-07 , [Train Capacity Loss]: 6.353583 Mbps | [Valid Loss]: 1.297E-08 , [Valid Capacity Loss]: 0.433673 Mbps
-# [Epoch]: 91, [Train Loss]: 3.260E-07 , [Train Capacity Loss]: 2.212267 Mbps | [Valid Loss]: 5.957E-08 , [Valid Capacity Loss]: 0.680347 Mbps
-# [Epoch]: 94, [Train Loss]: 9.189E-08 , [Train Capacity Loss]: 2.048471 Mbps | [Valid Loss]: 3.006E-07 , [Valid Capacity Loss]: 3.376941 Mbps
+# [Epoch]: 91, [Train Loss]: 3.643E-07 , [Train Capacity Loss]: 2.283653 Mbps | [Valid Loss]: 1.444E-07 , [Valid Capacity Loss]: 3.601279 Mbps
+# [Epoch]: 96, [Train Loss]: 2.287E-07 , [Train Capacity Loss]: 7.156674 Mbps | [Valid Loss]: 5.327E-08 , [Valid Capacity Loss]: 0.508040 Mbps
+# [Epoch]: 102, [Train Loss]: 7.589E-07 , [Train Capacity Loss]: 2.566055 Mbps | [Valid Loss]: 4.933E-08 , [Valid Capacity Loss]: 1.918607 Mbps
+# [Epoch]: 147, [Train Loss]: 3.167E-08 , [Train Capacity Loss]: 1.781789 Mbps | [Valid Loss]: 2.237E-07 , [Valid Capacity Loss]: 4.899098 Mbps

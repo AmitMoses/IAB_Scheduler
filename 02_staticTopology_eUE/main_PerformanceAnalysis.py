@@ -7,7 +7,6 @@ import NN_model as nnmod
 import f_nnAnzlysis as nna
 import f_SchedulingDataProcess as datap
 import p_RadioParameters as rp
-import main_SchedulingProject as cost
 from torch_geometric.loader import DataLoader
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -26,11 +25,18 @@ def main():
     # UE_database = pd.read_csv(path_UE)
     # test_UE = np.array(UE_database[9000:10000])
     # test_IAB = np.array(IAB_database[9000:10000])
+
+    # main_path = '../'
+    # raw_paths_IAB_graph = main_path + '/GraphDataset/data/raw/'
+    # processed_dir_IAB_graph = main_path + '/GraphDataset/data/processed/'
+    # path_UE = main_path + '/database/DynamicTopology/e6_m20_d3/UE_database.csv'
+    # path_IAB = main_path + '/database/DynamicTopology/e6_m20_d3/IAB_database.csv'
+    print(f'Total Bandwidth: {rp.Total_BW}')
     main_path = '../'
-    raw_paths_IAB_graph = main_path + '/GraphDataset/data/raw/'
-    processed_dir_IAB_graph = main_path + '/GraphDataset/data/processed/'
-    path_UE = main_path + '/database/DynamicTopology/e6_m20_d3/UE_database.csv'
-    path_IAB = main_path + '/database/DynamicTopology/e6_m20_d3/IAB_database.csv'
+    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v2/raw/'
+    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v2/processed/'
+    path_UE = main_path + '/database/DynamicTopology/data_v2/UE_database.csv'
+    path_IAB = main_path + '/database/DynamicTopology/data_v2/IAB_database.csv'
 
     UE_table_database, IAB_table_database, IAB_graph_database = \
         datap.load_datasets(path_ue_table=path_UE,
@@ -38,9 +44,9 @@ def main():
                             raw_path_iab_graph=raw_paths_IAB_graph,
                             processed_path_iab_graph=processed_dir_IAB_graph)
 
-    _, _, test_ue = datap.data_split(np.array(UE_table_database))
-    _, _, test_iab = datap.data_split(np.array(IAB_table_database))
-    _, _, test_iab_graph = datap.data_split(IAB_graph_database)
+    _, _, test_ue = datap.data_split(np.array(UE_table_database), is_all=False)
+    _, _, test_iab = datap.data_split(np.array(IAB_table_database), is_all=False)
+    _, _, test_iab_graph = datap.data_split(IAB_graph_database, is_all=False)
 
     modelV0 = nna.load_model(nnmod.ResourceAllocation_GNN(),
                           'gnn_V2', 125)
@@ -64,7 +70,6 @@ def main():
         iab_data_graph = iab_data_graph.to(device)
 
         # # model prediction
-        # test_pred = modelV0(input_val, test_UEIdx, test_iab_graph)
         # test_pred = modelV0(inputModel, Test_UEidx, iab_data_graph)
         test_pred = nna.simple_resource_allocation(test_ue, test_iab, iab_div=0.5)
 
@@ -94,7 +99,6 @@ def main():
         print('Average Unfulfilled Links:', np.mean(unfil_links))
 
         break
-
 
 
 if __name__ == '__main__':

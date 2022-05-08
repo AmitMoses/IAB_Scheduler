@@ -255,15 +255,20 @@ def capacity_cost(output, Data_UEbatch, Data_IABbatch):
     return CapacityCost
 
 
-def data_split(dataset):
+def data_split(dataset, is_all=True):
     """
     Split the dataset into train, validation and test.
     :param dataset: input dataset, which the iteration number is in the first dimension
     :return: train_dataset, valid_dataset, test_dataset
     """
-    train_dataset = dataset[0:8000]
-    valid_dataset = dataset[8000:9000]
-    test_dataset = dataset[9000:10000]
+    if is_all:
+        train_dataset = dataset[0:8000]
+        valid_dataset = dataset[8000:9000]
+        test_dataset = dataset[9000:10000]
+    else:
+        train_dataset = dataset[0:800]
+        valid_dataset = dataset[800:900]
+        test_dataset = dataset[900:1000]
 
     return train_dataset, valid_dataset, test_dataset
 

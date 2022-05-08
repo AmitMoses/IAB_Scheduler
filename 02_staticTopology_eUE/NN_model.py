@@ -811,9 +811,9 @@ class ResourceAllocation_GNN(nn.Module):
         self.batchsize = 0  # initial value. will change in the beginning of the forward
 
         # GCN layesr
-        self.conv1 = GCNConv(7, 1*16)
-        self.conv2 = GCNConv(1*16, 1*16)
-        self.fc1 = nn.Linear(1*16*10, 10)
+        self.conv1 = GCNConv(7, 1 * 16)
+        self.conv2 = GCNConv(1 * 16, 1*16)
+        self.fc1 = nn.Linear(1 * 16 * 10, 10)
         self.out = nn.Softmax(dim=1)
 
     def big_model(self, input_iab):

@@ -5,7 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import p_RadioParameters as rp
 import f_SchedulingDataProcess as datap
-import main_SchedulingProject as cost
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -111,6 +110,7 @@ def cap_req_vs_alloc_bars(capacity, efficiency, test_pred):
 
 # Average unfulfilled links
 def unfulfilled_links_bars(UE_capacity, UE_efficiency, UE_pred):
+    sample_len = UE_pred.shape[0]
     out_UE = UE_pred * UE_efficiency * rp.Total_BW / 1e6
 
     req_vec = torch.reshape(UE_capacity, (-1,)).detach().numpy()  # requested data
@@ -136,7 +136,7 @@ def unfulfilled_links_bars(UE_capacity, UE_efficiency, UE_pred):
     res = links_per_samp - np.asarray(y_list)
     res_mean = np.mean(res)
     # plot
-    x = np.arange(1000)  # the label locations
+    x = np.arange(sample_len)  # the label locations
 
     fig = plt.figure(figsize=(25, 7))
     ax = fig.add_subplot(111)
@@ -182,7 +182,7 @@ def simple_resource_allocation(test_UE, test_IAB, iab_div):
     # print(gNB_pred.shape)
 
 
-    gNB_pred = gNB_pred.view(1000, 10, 1)
+    gNB_pred = gNB_pred.view(100, 10, 1)
     # print(gNB_pred.shape)
 
     gNB_pred = gNB_pred
