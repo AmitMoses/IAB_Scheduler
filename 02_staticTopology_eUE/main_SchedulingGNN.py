@@ -37,9 +37,9 @@ def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
     # print(dataset_ue.shape)
     # print(dataset_iab.shape)
 
-    train_ue, valid_ue, _ = datap.data_split(np.array(dataset_ue), is_all=False)
-    train_iab, valid_iab, _ = datap.data_split(np.array(dataset_iab), is_all=False)
-    train_iab_graph, valid_iab_graph, _ = datap.data_split(dataset_graph_iab, is_all=False)
+    train_ue, valid_ue, _ = datap.data_split(np.array(dataset_ue), is_all=True)
+    train_iab, valid_iab, _ = datap.data_split(np.array(dataset_iab), is_all=True)
+    train_iab_graph, valid_iab_graph, _ = datap.data_split(dataset_graph_iab, is_all=True)
 
     # Training process
     for epoch in range(config['epochs']):
@@ -194,21 +194,20 @@ def main():
                             raw_path_iab_graph=raw_paths_IAB_graph,
                             processed_path_iab_graph=processed_dir_IAB_graph)
 
-    print(UE_table_database)
-    print(IAB_table_database)
+
     model_config = {
         'batch_size': 50,
-        'epochs': 150,
+        'epochs': 200,
         'learning_rate': 1e-3,
         'weight_decay': 0,
         'regulation_cost': 0,
         'lr_change': False,
-        'if_save_model': True,
+        'if_save_model': False,
         'save_model_path': 'gnn_V3'
     }
-    batch_v = [10]
-    learn_v = [1e-4]
-    wd_v = [1e-10]
+    batch_v = [10, 50, 200]
+    learn_v = [1e-3, 1e-4]
+    wd_v = [0]
     for b in batch_v:
         for l in learn_v:
             for w in wd_v:
@@ -216,7 +215,8 @@ def main():
                 model_config['batch_size'] = b
                 model_config['learning_rate'] = l
                 model_config['weight_decay'] = w
-                GCN_model = nnmod.ResourceAllocation_GNN()
+                GCN_model = nnmod.ResourceAllocation_GNN2()
+                print(GCN_model)
 
                 train(dataset_ue=UE_table_database,
                       dataset_iab=IAB_table_database,

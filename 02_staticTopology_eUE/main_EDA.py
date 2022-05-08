@@ -24,9 +24,9 @@ def main():
                             raw_path_iab_graph=raw_paths_IAB_graph,
                             processed_path_iab_graph=processed_dir_IAB_graph)
 
-    train_ue, valid_ue, test_ue = datap.data_split(np.array(UE_table_database), is_all=False)
-    tarin_iab, valid_iab, test_iab = datap.data_split(np.array(IAB_table_database), is_all=False)
-    train_iab_graph, test_iab_graph, test_iab_graph = datap.data_split(IAB_graph_database, is_all=False)
+    train_ue, valid_ue, test_ue = datap.data_split(np.array(UE_table_database), is_all=True)
+    tarin_iab, valid_iab, test_iab = datap.data_split(np.array(IAB_table_database), is_all=True)
+    train_iab_graph, test_iab_graph, test_iab_graph = datap.data_split(IAB_graph_database, is_all=True)
 
     Test_UEbatch, Test_IABbatch, Test_UEidx = \
         datap.get_batch(np.copy(test_ue), np.copy(test_iab), 0, len(test_ue))
