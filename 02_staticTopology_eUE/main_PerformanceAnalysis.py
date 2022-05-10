@@ -33,10 +33,10 @@ def main():
     # path_IAB = main_path + '/database/DynamicTopology/e6_m20_d3/IAB_database.csv'
     print(f'Total Bandwidth: {rp.Total_BW}')
     main_path = '../'
-    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v2/raw/'
-    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v2/processed/'
-    path_UE = main_path + '/database/DynamicTopology/data_v2/UE_database.csv'
-    path_IAB = main_path + '/database/DynamicTopology/data_v2/IAB_database.csv'
+    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v3/raw/'
+    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v3/processed/'
+    path_UE = main_path + '/database/DynamicTopology/data_v3/UE_database.csv'
+    path_IAB = main_path + '/database/DynamicTopology/data_v3/IAB_database.csv'
 
     UE_table_database, IAB_table_database, IAB_graph_database = \
         datap.load_datasets(path_ue_table=path_UE,

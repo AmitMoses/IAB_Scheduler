@@ -1,7 +1,7 @@
 __author__ = 'Amit'
 # Radio parameters:
 
-Total_BW = 370e6
+Total_BW = 520e6
 CQI2efficiency = {
     0: 0,
     1: 0.1523,

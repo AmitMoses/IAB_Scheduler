@@ -570,7 +570,6 @@ class ResourceAllocationDynamic2(nn.Module):
         return y
 
 
-
 class ResourceAllocationDynamicGelu(nn.Module):
     def __init__(self,
                  unit_input=6,
@@ -763,6 +762,103 @@ class ResourceAllocationDynamicGelu2(nn.Module):
         return y
 
 
+class ResourceAllocationDynamicGelu3(nn.Module):
+    def __init__(self,
+                 unit_input=6,
+                 emb_size=40,
+                 small_input_size=40 * rp.maxUEperBS + 1,
+                 small_n_hidden=40 * rp.maxUEperBS + 1,
+                 small_output_size=(rp.maxUEperBS + rp.backhaul_num)*2,
+                 small_donor_output_size=rp.maxUEperBS*2,
+                 big_input_size=40 * rp.IAB_num,
+                 big_n_hidden=40 * rp.IAB_num, big_output_size=10):
+        super(ResourceAllocationDynamicGelu3, self).__init__()
+        self.embed = nn.Sequential(
+            nn.Linear(in_features=unit_input, out_features=emb_size),
+            nn.GELU(),
+            nn.Linear(in_features=emb_size, out_features=emb_size)
+        )
+        self.big = nn.Sequential(
+            nn.Linear(big_input_size, big_n_hidden),
+            nn.GELU(),
+            nn.Linear(big_n_hidden, big_n_hidden),
+            nn.GELU(),
+            nn.Dropout(0.25),
+            nn.Linear(big_n_hidden, big_output_size),
+            nn.Softmax(dim=1)
+        )
+
+        self.small = nn.Sequential(
+            nn.Linear(small_input_size, small_n_hidden),
+            nn.GELU(),
+            nn.Linear(small_n_hidden, small_n_hidden),
+            nn.GELU(),
+            nn.Dropout(0.25),
+            nn.Linear(small_n_hidden, small_output_size),
+            nn.Softmax(dim=1)
+        )
+
+        self.smallDonor = nn.Sequential(
+            nn.Linear(small_input_size, small_n_hidden),
+            nn.GELU(),
+            nn.Linear(small_n_hidden, small_n_hidden),
+            nn.GELU(),
+            nn.Dropout(0.25),
+            nn.Linear(small_n_hidden, small_output_size),
+            nn.Softmax(dim=1)
+        )
+
+        self.embbeing_size = emb_size
+
+        self.batchsize = 0  # initial value. will change in the beginning of the forward
+
+
+    def big_model(self, input_iab):
+        input_iab = torch.reshape(input_iab, (self.batchsize, -1, rp.train_feature))
+        input_iab = self.embed(input_iab)
+        input_iab = input_iab.view(-1, 10 * self.embbeing_size)
+        output = self.big(input_iab)
+        return output
+
+    def small_model(self, input_ue, input_iab, input_Indicator, IABInd):
+        input_ue = torch.reshape(input_ue, (self.batchsize, -1, rp.train_feature))
+        input_ue = self.embed(input_ue)  # Embbedind input
+        input_ue = torch.reshape(input_ue, (-1, rp.maxUEperBS * self.embbeing_size))
+        input_ue = torch.cat((input_ue, input_iab), dim=1)
+        if IABInd == 1:
+            input_ue = self.small(input_ue)  # forward in the small model
+        else:
+            input_ue = self.smallDonor(input_ue)  # forward in the small model
+        # Normalize output according to UE number in IAB
+        NormFactor = torch.sum((input_ue * input_Indicator), dim=1)
+        NormFactor = NormFactor.repeat((rp.maxUEperBS + rp.backhaul_num) * 2, 1)
+        NormFactor = torch.transpose(NormFactor, 0, 1) + rp.eps
+        output = ((input_ue * input_Indicator) / NormFactor) * input_iab
+        return output
+
+    def forward(self, x, UEIdx):
+        self.batchsize = x.shape[0]
+        input_feature = rp.train_feature * rp.maxUEperBS
+        x_iabs = x[:, 0:60]
+        x_ues = x[:, 60:]
+
+
+        x_iabs = self.big_model(x_iabs)
+        x_ues = x_ues.view(-1, rp.train_feature * rp.maxUEperBS * rp.IAB_num)
+        y = torch.zeros(self.batchsize, rp.IAB_num, (rp.maxUEperBS + rp.backhaul_num)*2)
+
+        for i in range(0, rp.IAB_num):
+            if i < rp.IAB_num - 1:
+                IABnode = 1
+            else:
+                IABnode = 1
+            small_in_IAB = x_iabs[:, i:i + 1]  # take BW allocated to the IAB
+            small_in_UE = x_ues[:, 0 + i * input_feature:input_feature + i * input_feature] # Take UE
+            ueOnIndicator = torch.cat((UEIdx[:, i, :], torch.ones((self.batchsize, 2)).to(device)), dim=1)
+            y[:, i, :] = self.small_model(small_in_UE, small_in_IAB, ueOnIndicator, IABInd=IABnode)
+        return y
+
+
 class ResourceAllocation_GNN(nn.Module):
     def __init__(self,
                  unit_input=6,
@@ -878,7 +974,7 @@ class ResourceAllocation_GNN(nn.Module):
         return y
 
 
-class ResourceAllocation_GNN2(nn.Module):
+class ResourceAllocation_GCNConv(nn.Module):
     def __init__(self,
                  unit_input=6,
                  emb_size=30,
@@ -888,7 +984,7 @@ class ResourceAllocation_GNN2(nn.Module):
                  small_donor_output_size=rp.maxUEperBS*2,
                  big_input_size=30 * rp.IAB_num,
                  big_n_hidden=30 * rp.IAB_num, big_output_size=10):
-        super(ResourceAllocation_GNN2, self).__init__()
+        super(ResourceAllocation_GCNConv, self).__init__()
         self.embed = nn.Sequential(
             nn.Linear(in_features=unit_input, out_features=emb_size),
             nn.ReLU(),
@@ -926,13 +1022,9 @@ class ResourceAllocation_GNN2(nn.Module):
         self.batchsize = 0  # initial value. will change in the beginning of the forward
 
         # GCN layesr
-        # self.conv1 = GCNConv(7, 2 * 16)
-        # self.conv2 = GCNConv(2 * 16, 2*16)
-        # self.conv1 = SAGEConv(7, 2 * 16)
-        # self.conv2 = SAGEConv(2 * 16, 2 * 16)
-        self.conv1 = GATv2Conv(7, 2 * 16)
-        self.conv2 = GATv2Conv(2 * 16, 2 * 16)
-        self.fc1 = nn.Linear(2 * 16 * 10, 10)
+        self.conv1 = GCNConv(7, 2 * 16)
+        self.conv2 = GCNConv(2 * 16, 4 * 16)
+        self.fc1 = nn.Linear(4 * 16 * 10, 10)
         self.fc2 = nn.Linear(10, 10)
         self.out = nn.Softmax(dim=1)
 
@@ -952,6 +1044,240 @@ class ResourceAllocation_GNN2(nn.Module):
         # Layer 2
         x = self.conv2(x, edge_index)
         x = F.gelu(x)
+        # Layer 3
+        x = x.view((batch_size, -1))
+        x = self.fc1(x)
+        # Output Layer
+        x = self.out(x)
+        return x
+
+    def small_model(self, input_ue, input_iab, input_Indicator, IABInd):
+        input_ue = torch.reshape(input_ue, (self.batchsize, -1, rp.train_feature))
+        input_ue = self.embed(input_ue)  # Embbedind input
+        input_ue = torch.reshape(input_ue, (-1, rp.maxUEperBS * self.embbeing_size))
+        input_ue = torch.cat((input_ue, input_iab), dim=1)
+        if IABInd == 1:
+            input_ue = self.small(input_ue)  # forward in the small model
+        else:
+            input_ue = self.smallDonor(input_ue)  # forward in the small model
+        # Normalize output according to UE number in IAB
+        NormFactor = torch.sum((input_ue * input_Indicator), dim=1)
+        NormFactor = NormFactor.repeat((rp.maxUEperBS + rp.backhaul_num) * 2, 1)
+        NormFactor = torch.transpose(NormFactor, 0, 1) + rp.eps
+        output = ((input_ue * input_Indicator) / NormFactor) * input_iab
+        return output
+
+    def forward(self, x, UEIdx, iab_graph):
+        self.batchsize = x.shape[0]
+        input_feature = rp.train_feature * rp.maxUEperBS
+        # x_iabs = x[:, 0:60]
+        x_ues = x[:, 60:]
+
+        # x_iabs = self.big_model(x_iabs)
+        x_iabs = self.big_gcn(iab_graph, self.batchsize)
+        x_ues = x_ues.view(-1, rp.train_feature * rp.maxUEperBS * rp.IAB_num)
+        y = torch.zeros(self.batchsize, rp.IAB_num, (rp.maxUEperBS + rp.backhaul_num)*2)
+
+        for i in range(0, rp.IAB_num):
+            if i < rp.IAB_num - 1:
+                IABnode = 1
+            else:
+                IABnode = 1
+            small_in_IAB = x_iabs[:, i:i + 1]  # take BW allocated to the IAB
+            small_in_UE = x_ues[:, 0 + i * input_feature:input_feature + i * input_feature] # Take UE
+            ueOnIndicator = torch.cat((UEIdx[:, i, :], torch.ones((self.batchsize, 2)).to(device)), dim=1)
+            y[:, i, :] = self.small_model(small_in_UE, small_in_IAB, ueOnIndicator, IABInd=IABnode)
+        return y
+
+
+class ResourceAllocation_SAGEConv(nn.Module):
+    def __init__(self,
+                 unit_input=6,
+                 emb_size=30,
+                 small_input_size=30 * rp.maxUEperBS + 1,
+                 small_n_hidden=30 * rp.maxUEperBS + 1,
+                 small_output_size=(rp.maxUEperBS + rp.backhaul_num)*2,
+                 small_donor_output_size=rp.maxUEperBS*2,
+                 big_input_size=30 * rp.IAB_num,
+                 big_n_hidden=30 * rp.IAB_num, big_output_size=10):
+        super(ResourceAllocation_SAGEConv, self).__init__()
+        self.embed = nn.Sequential(
+            nn.Linear(in_features=unit_input, out_features=emb_size),
+            nn.ReLU(),
+            nn.Linear(in_features=emb_size, out_features=emb_size)
+        )
+        self.big = nn.Sequential(
+            nn.Linear(big_input_size, big_n_hidden),
+            nn.GELU(),
+            nn.Linear(big_n_hidden, big_n_hidden),
+            nn.GELU(),
+            nn.Linear(big_n_hidden, big_output_size),
+            nn.Softmax(dim=1)
+        )
+
+        self.small = nn.Sequential(
+            nn.Linear(small_input_size, small_n_hidden),
+            nn.GELU(),
+            nn.Linear(small_n_hidden, small_n_hidden),
+            nn.GELU(),
+            nn.Linear(small_n_hidden, small_output_size),
+            nn.Softmax(dim=1)
+        )
+
+        self.smallDonor = nn.Sequential(
+            nn.Linear(small_input_size, small_n_hidden),
+            nn.GELU(),
+            nn.Linear(small_n_hidden, small_n_hidden),
+            nn.GELU(),
+            nn.Linear(small_n_hidden, small_output_size),
+            nn.Softmax(dim=1)
+        )
+
+        self.embbeing_size = emb_size
+
+        self.batchsize = 0  # initial value. will change in the beginning of the forward
+
+        # GCN layesr
+        self.conv1 = SAGEConv(7, 1 * 16)
+        self.conv2 = SAGEConv(1 * 16, 1*16)
+        self.fc1 = nn.Linear(1 * 16 * 10, 10)
+        self.fc2 = nn.Linear(10, 10)
+        self.out = nn.Softmax(dim=1)
+
+    def big_model(self, input_iab):
+        input_iab = torch.reshape(input_iab, (self.batchsize, -1, rp.train_feature))
+        input_iab = self.embed(input_iab)
+        input_iab = input_iab.view(-1, 10 * self.embbeing_size)
+        output = self.big_gnn(input_iab)
+        return output
+
+    def big_gcn(self, data, batch_size):
+        x, edge_index = data.x, data.edge_index
+        edge_index = edge_index.long()
+        # Layer 1
+        x = self.conv1(x, edge_index)
+        x = F.gelu(x)
+        # Layer 2
+        x = self.conv2(x, edge_index)
+        x = F.gelu(x)
+        # Layer 3
+        x = x.view((batch_size, -1))
+        x = self.fc1(x)
+        # Output Layer
+        x = self.out(x)
+        return x
+
+    def small_model(self, input_ue, input_iab, input_Indicator, IABInd):
+        input_ue = torch.reshape(input_ue, (self.batchsize, -1, rp.train_feature))
+        input_ue = self.embed(input_ue)  # Embbedind input
+        input_ue = torch.reshape(input_ue, (-1, rp.maxUEperBS * self.embbeing_size))
+        input_ue = torch.cat((input_ue, input_iab), dim=1)
+        if IABInd == 1:
+            input_ue = self.small(input_ue)  # forward in the small model
+        else:
+            input_ue = self.smallDonor(input_ue)  # forward in the small model
+        # Normalize output according to UE number in IAB
+        NormFactor = torch.sum((input_ue * input_Indicator), dim=1)
+        NormFactor = NormFactor.repeat((rp.maxUEperBS + rp.backhaul_num) * 2, 1)
+        NormFactor = torch.transpose(NormFactor, 0, 1) + rp.eps
+        output = ((input_ue * input_Indicator) / NormFactor) * input_iab
+        return output
+
+    def forward(self, x, UEIdx, iab_graph):
+        self.batchsize = x.shape[0]
+        input_feature = rp.train_feature * rp.maxUEperBS
+        # x_iabs = x[:, 0:60]
+        x_ues = x[:, 60:]
+
+        # x_iabs = self.big_model(x_iabs)
+        x_iabs = self.big_gcn(iab_graph, self.batchsize)
+        x_ues = x_ues.view(-1, rp.train_feature * rp.maxUEperBS * rp.IAB_num)
+        y = torch.zeros(self.batchsize, rp.IAB_num, (rp.maxUEperBS + rp.backhaul_num)*2)
+
+        for i in range(0, rp.IAB_num):
+            if i < rp.IAB_num - 1:
+                IABnode = 1
+            else:
+                IABnode = 1
+            small_in_IAB = x_iabs[:, i:i + 1]  # take BW allocated to the IAB
+            small_in_UE = x_ues[:, 0 + i * input_feature:input_feature + i * input_feature] # Take UE
+            ueOnIndicator = torch.cat((UEIdx[:, i, :], torch.ones((self.batchsize, 2)).to(device)), dim=1)
+            y[:, i, :] = self.small_model(small_in_UE, small_in_IAB, ueOnIndicator, IABInd=IABnode)
+        return y
+
+
+class ResourceAllocation_GATv2Conv(nn.Module):
+    def __init__(self,
+                 unit_input=6,
+                 emb_size=30,
+                 small_input_size=30 * rp.maxUEperBS + 1,
+                 small_n_hidden=30 * rp.maxUEperBS + 1,
+                 small_output_size=(rp.maxUEperBS + rp.backhaul_num)*2,
+                 small_donor_output_size=rp.maxUEperBS*2,
+                 big_input_size=30 * rp.IAB_num,
+                 big_n_hidden=30 * rp.IAB_num, big_output_size=10):
+        super(ResourceAllocation_GATv2Conv, self).__init__()
+        self.embed = nn.Sequential(
+            nn.Linear(in_features=unit_input, out_features=emb_size),
+            nn.ReLU(),
+            nn.Linear(in_features=emb_size, out_features=emb_size)
+        )
+        self.big = nn.Sequential(
+            nn.Linear(big_input_size, big_n_hidden),
+            nn.GELU(),
+            nn.Linear(big_n_hidden, big_n_hidden),
+            nn.GELU(),
+            nn.Linear(big_n_hidden, big_output_size),
+            nn.Softmax(dim=1)
+        )
+
+        self.small = nn.Sequential(
+            nn.Linear(small_input_size, small_n_hidden),
+            nn.GELU(),
+            nn.Linear(small_n_hidden, small_n_hidden),
+            nn.GELU(),
+            nn.Linear(small_n_hidden, small_output_size),
+            nn.Softmax(dim=1)
+        )
+
+        self.smallDonor = nn.Sequential(
+            nn.Linear(small_input_size, small_n_hidden),
+            nn.GELU(),
+            nn.Linear(small_n_hidden, small_n_hidden),
+            nn.GELU(),
+            nn.Linear(small_n_hidden, small_output_size),
+            nn.Softmax(dim=1)
+        )
+
+        self.embbeing_size = emb_size
+
+        self.batchsize = 0  # initial value. will change in the beginning of the forward
+
+        # GCN layesr
+        self.conv1 = GATv2Conv(7, 1*4, heads=3)
+        self.conv2 = GATv2Conv(3*4, 3*4, heads=3)
+        self.fc1 = nn.Linear(3*3*4*10, 10)
+        self.out = nn.Softmax(dim=1)
+        self.dropout = nn.Dropout(0.25)
+
+    def big_model(self, input_iab):
+        input_iab = torch.reshape(input_iab, (self.batchsize, -1, rp.train_feature))
+        input_iab = self.embed(input_iab)
+        input_iab = input_iab.view(-1, 10 * self.embbeing_size)
+        output = self.big_gnn(input_iab)
+        return output
+
+    def big_gcn(self, data, batch_size):
+        x, edge_index = data.x, data.edge_index
+        edge_index = edge_index.long()
+        # Layer 1
+        x = self.conv1(x, edge_index)
+        x = F.gelu(x)
+        x = self.dropout(x)
+        # Layer 2
+        x = self.conv2(x, edge_index)
+        x = F.gelu(x)
+        x = self.dropout(x)
         # Layer 3
         x = x.view((batch_size, -1))
         x = self.fc1(x)

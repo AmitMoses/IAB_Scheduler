@@ -7,6 +7,7 @@ import pandas as pd
 import sys
 sys.path.insert(1, '../GraphDataset/')
 import DataGenerator as data_gen
+from sklearn.model_selection import train_test_split
 
 
 def input_extract_for_cost(model_input):
@@ -34,20 +35,20 @@ def input_extract_for_cost(model_input):
                                                           = 1 * 2 = 20
     """
     # Parameters:
-    IAB_num = 10
-    feature_num = 6
+    # IAB_num = 10
+    # feature_num = 6
     batch_size = model_input.shape[0]
     data_len = int(
-        model_input.shape[1] / (IAB_num * 3))  # 2 because just half the data is neccesery (efficiency or CQI)
+        model_input.shape[1] / (rp.IAB_num * 3))  # 2 because just half the data is neccesery (efficiency or CQI)
     # initialize
-    efficiency_batch_mat = torch.zeros(batch_size, IAB_num, data_len)
-    capacity_batch_mat = torch.zeros(batch_size, IAB_num, data_len)
+    efficiency_batch_mat = torch.zeros(batch_size, rp.IAB_num, data_len)
+    capacity_batch_mat = torch.zeros(batch_size, rp.IAB_num, data_len)
 
     # Extract capacity & efficiency data from every input in the batch
     for i in range(0, batch_size):
         # input shape
         one_batch_input = model_input[i]
-        one_batch_input = one_batch_input.reshape(-1, feature_num)
+        one_batch_input = one_batch_input.reshape(-1, rp.feature_num)
         # capacity extract from input
         capacity = torch.cat((one_batch_input[:, 0:1], one_batch_input[:, 3:4]), dim=1)
         capacity = torch.reshape(capacity, (10, -1))
@@ -75,7 +76,7 @@ def label_extractor(Data_UEbatch, Data_IABbatch):
     currently getting the label from UL & DL of the users (can be changing by
     changing the database)
     """
-    IAB_num = 10
+    # IAB_num = 10
     UE_efficiency, UE_capacity = input_extract_for_cost(Data_UEbatch)
     IAB_efficiency, IAB_capacity = input_extract_for_cost(Data_IABbatch)
     IAB_capacity[:, -1, :] = 0
@@ -97,11 +98,11 @@ def usher(UEs_data, sample_number):
     :param sample_number:   The sample number in the database. each index point to specific data sample
     :return:
     """
-    number_of_UEs = 100
+    # number_of_UEs = 100
     info_cells_per_UE = 5
     in_vec = UEs_data[sample_number]
     in_mat = in_vec.reshape(
-        (number_of_UEs, info_cells_per_UE))  # reshape to matrix, for output: each row represents different UE
+        (rp.UE_num, info_cells_per_UE))  # reshape to matrix, for output: each row represents different UE
     in_iab = in_mat[:, 0]  # get IAB info only
     sorted_args_by_iab = np.argsort(in_iab)  # get indexes of how it should be sorted
 
@@ -235,7 +236,7 @@ def topology_cost(output, label, Regulation=0):
     cost = (output - label)
     index = torch.where(cost > 0)
     cost[index] = Regulation * cost[index]
-    cost = cost ** 2
+    cost = torch.abs(cost)
     cost = torch.sum(cost, dim=(1, 2))
     cost = torch.mean(cost)
     return cost
@@ -255,20 +256,25 @@ def capacity_cost(output, Data_UEbatch, Data_IABbatch):
     return CapacityCost
 
 
-def data_split(dataset, is_all=True):
+def data_split(dataset, is_all=True, type='', print_info=False):
     """
     Split the dataset into train, validation and test.
+    :param type: data type
+    :param is_all: choose if take all data or part of
     :param dataset: input dataset, which the iteration number is in the first dimension
     :return: train_dataset, valid_dataset, test_dataset
     """
-    if is_all:
-        train_dataset = dataset[0:8000]
-        valid_dataset = dataset[8000:9000]
-        test_dataset = dataset[9000:10000]
-    else:
-        train_dataset = dataset[0:800]
-        valid_dataset = dataset[800:900]
-        test_dataset = dataset[900:1000]
+    if not is_all:
+        dataset = dataset[0:1000]
+
+    train_dataset, val_test = train_test_split(dataset, test_size=0.2, shuffle=False)
+    valid_dataset, test_dataset = train_test_split(val_test, test_size=0.5, shuffle=False)
+
+    if print_info:
+        print(f'Dataset division - {type}:')
+        print(f'Train length:       {len(train_dataset)}')
+        print(f'Validation length:  {len(valid_dataset)}')
+        print(f'Test length:        {len(test_dataset)}')
 
     return train_dataset, valid_dataset, test_dataset
 
