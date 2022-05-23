@@ -1,7 +1,9 @@
 __author__ = 'Amit'
 # Radio parameters:
 
-Total_BW = 520e6
+# General
+eps = 1e-15
+Total_BW = 550e6
 CQI2efficiency = {
     0: 0,
     1: 0.1523,
@@ -21,12 +23,17 @@ CQI2efficiency = {
     15: 7.4063
 }
 
-eps = 1e-15
+# Features
 feature_num = 6
 feature_num_old = 4
 train_feature = 6
-maxUEperBS = 20
+
+# IAB
 IAB_num = 10
+IAB_node_num = IAB_num - 1
 backhaul_num = 1
-access_num = 2
+maxUEperBS = 20
+
+# UE
 UE_num = 100
+access_num = 2

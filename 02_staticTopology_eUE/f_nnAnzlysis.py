@@ -165,24 +165,26 @@ def simple_resource_allocation(test_UE, test_IAB, iab_div):
     minibatch_size = test_UE.shape[0]
     # minibatch_size = 1
     Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
-    _, UE_capacity = datap.input_extract_for_cost(Data_UEbatch)
-    _, IAB_capacity = datap.input_extract_for_cost(Data_IABbatch)
+    UE_eff, UE_capacity = datap.input_extract_for_cost(Data_UEbatch)
+    IAB_eff, IAB_capacity = datap.input_extract_for_cost(Data_IABbatch)
+    UE_bw = UE_capacity/UE_eff
+    IAB_bw = IAB_capacity/IAB_eff
     # IAB_capacity[:, -1, :] = 0
     # allocation for UE links
-    UE_norm = torch.sum(UE_capacity, dim=2)
+    UE_norm = torch.sum(UE_bw, dim=2)
     UE_norm = UE_norm.view((minibatch_size, -1, 1))
-    IAB_norm = torch.sum(IAB_capacity, dim=2)
+    IAB_norm = torch.sum(IAB_bw, dim=2)
     IAB_norm = IAB_norm.view((minibatch_size, -1, 1))
 
     # need to replace nan to zero in IAB_norm
-    access_pred = (UE_capacity / UE_norm) * (1 - iab_div)
-    backhaul_pred = (IAB_capacity / IAB_norm) * iab_div
+    access_pred = (UE_bw / UE_norm) * (1 - iab_div)
+    backhaul_pred = (IAB_bw / IAB_norm) * iab_div
 
-    gNB_pred = torch.sum(IAB_capacity, dim=2)
+    gNB_pred = torch.sum(IAB_bw, dim=2)
     # print(gNB_pred.shape)
 
 
-    gNB_pred = gNB_pred.view(100, 10, 1)
+    gNB_pred = gNB_pred.view(minibatch_size, 10, 1)
     # print(gNB_pred.shape)
 
     gNB_pred = gNB_pred

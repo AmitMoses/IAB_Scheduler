@@ -8,6 +8,8 @@ import f_nnAnzlysis as nna
 import f_SchedulingDataProcess as datap
 import p_RadioParameters as rp
 from torch_geometric.loader import DataLoader
+import main_EDA as eda
+import f_schedulers as scheduler
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -25,31 +27,35 @@ def main():
     # UE_database = pd.read_csv(path_UE)
     # test_UE = np.array(UE_database[9000:10000])
     # test_IAB = np.array(IAB_database[9000:10000])
-
+    # print('one hop')
     # main_path = '../'
     # raw_paths_IAB_graph = main_path + '/GraphDataset/data/raw/'
     # processed_dir_IAB_graph = main_path + '/GraphDataset/data/processed/'
     # path_UE = main_path + '/database/DynamicTopology/e6_m20_d3/UE_database.csv'
     # path_IAB = main_path + '/database/DynamicTopology/e6_m20_d3/IAB_database.csv'
-    print(f'Total Bandwidth: {rp.Total_BW}')
-    main_path = '../'
-    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v3/raw/'
-    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v3/processed/'
-    path_UE = main_path + '/database/DynamicTopology/data_v3/UE_database.csv'
-    path_IAB = main_path + '/database/DynamicTopology/data_v3/IAB_database.csv'
 
+    print('multi-hop1')
+    main_path = '../'
+    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v4/raw/'
+    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v4/processed/'
+    path_UE = main_path + '/database/DynamicTopology/data_v4/UE_database.csv'
+    path_IAB = main_path + '/database/DynamicTopology/data_v4/IAB_database.csv'
+    print(f'Total Bandwidth: {rp.Total_BW}')
     UE_table_database, IAB_table_database, IAB_graph_database = \
         datap.load_datasets(path_ue_table=path_UE,
                             path_iab_table=path_IAB,
                             raw_path_iab_graph=raw_paths_IAB_graph,
                             processed_path_iab_graph=processed_dir_IAB_graph)
 
-    _, _, test_ue = datap.data_split(np.array(UE_table_database), is_all=False)
-    _, _, test_iab = datap.data_split(np.array(IAB_table_database), is_all=False)
-    _, _, test_iab_graph = datap.data_split(IAB_graph_database, is_all=False)
+    UE_table_rm_outlier, IAB_table_rm_outlier, IAB_graph_rm_outlier = \
+        eda.remove_outlier_spectrum(UE_table_database, IAB_table_database, IAB_graph_database, isPlot=False)
 
-    modelV0 = nna.load_model(nnmod.ResourceAllocation_GNN(),
-                          'gnn_V2', 125)
+    _, _, test_ue = datap.data_split(np.array(UE_table_rm_outlier), is_all=True)
+    _, _, test_iab = datap.data_split(np.array(IAB_table_rm_outlier), is_all=True)
+    _, _, test_iab_graph = datap.data_split(IAB_graph_rm_outlier, is_all=True)
+
+    modelV0 = nna.load_model(nnmod.ResourceAllocation3DNN_v2(),
+                          'DNN_V1', 150)
 
     # common data processing
     minibatch_size = test_ue.shape[0]
@@ -71,8 +77,12 @@ def main():
 
         # # model prediction
         # test_pred = modelV0(inputModel, Test_UEidx, iab_data_graph)
-        test_pred = nna.simple_resource_allocation(test_ue, test_iab, iab_div=0.5)
-
+        # test_pred = modelV0(inputModel, Test_UEidx)
+        # test_pred = nna.simple_resource_allocation(test_ue, test_iab, iab_div=0.5)
+        # test_pred = scheduler.equal_resource(test_ue, test_iab)
+        # test_pred = scheduler.out_of_band_like(test_ue, test_iab)
+        # test_pred = scheduler.fair_access_n_backhaul(test_ue, test_iab, iab_div=0.5)
+        test_pred = scheduler.optimal(test_ue, test_iab)
     # ==========================================================================
 
 

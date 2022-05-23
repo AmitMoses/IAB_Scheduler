@@ -35,8 +35,6 @@ def input_extract_for_cost(model_input):
                                                           = 1 * 2 = 20
     """
     # Parameters:
-    # IAB_num = 10
-    # feature_num = 6
     batch_size = model_input.shape[0]
     data_len = int(
         model_input.shape[1] / (rp.IAB_num * 3))  # 2 because just half the data is neccesery (efficiency or CQI)
@@ -51,11 +49,11 @@ def input_extract_for_cost(model_input):
         one_batch_input = one_batch_input.reshape(-1, rp.feature_num)
         # capacity extract from input
         capacity = torch.cat((one_batch_input[:, 0:1], one_batch_input[:, 3:4]), dim=1)
-        capacity = torch.reshape(capacity, (10, -1))
+        capacity = torch.reshape(capacity, (rp.IAB_num, -1))
 
         # efficiency extract from input
         efficiency = torch.cat((one_batch_input[:, 1:2], one_batch_input[:, 4:5]), dim=1)
-        efficiency = torch.reshape(efficiency, (10, -1))
+        efficiency = torch.reshape(efficiency, (rp.IAB_num, -1))
         # efficiency calculate from CQI & CQI2efficiency dict
         # efficiency = torch.tensor([[rp.CQI2efficiency[int(allocation)] for allocation in IAB_out] for IAB_out in CQI])
         # efficiency = CQI
@@ -253,7 +251,12 @@ def capacity_cost(output, Data_UEbatch, Data_IABbatch):
     CapacityCost = torch.sum(CapacityCost, dim=(1, 2))
     CapacityCost = torch.mean(CapacityCost)
 
-    return CapacityCost
+    BW_cost = capacity/efficiency - output * rp.Total_BW / 1e6
+    BW_cost[index] = 0
+    BW_cost = torch.sum(BW_cost, dim=(1, 2))
+    BW_cost = torch.mean(BW_cost)
+
+    return CapacityCost, BW_cost
 
 
 def data_split(dataset, is_all=True, type='', print_info=False):

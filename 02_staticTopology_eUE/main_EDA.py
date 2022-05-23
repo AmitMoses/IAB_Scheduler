@@ -4,7 +4,8 @@ import numpy as np
 import f_SchedulingDataProcess as datap
 import torch
 import matplotlib.pyplot as plt
-
+import networkx as nx
+import torch_geometric
 
 def delete_multiple_element(list_object, indices):
     indices = sorted(indices, reverse=True)
@@ -50,22 +51,22 @@ def get_cap_eff_data(UE_table_database, IAB_table_database):
     return capacity, efficiency
 
 
-def remove_outlier_idx(UE_table_database, IAB_table_database, IAB_graph_database, isPlot = True):
+def remove_outlier_spectrum(UE_table_database, IAB_table_database, IAB_graph_database, isPlot = True):
     capacity, efficiency = get_cap_eff_data(UE_table_database, IAB_table_database)
 
     bw_link = capacity / efficiency
     bw_iteration = torch.sum(bw_link, dim=(1, 2))
-
-    outlier_idx = torch.where(bw_iteration > 520)[0]
-    print(outlier_idx)
-    print(len(outlier_idx))
+    spectrum_outliers = 520
+    outlier_idx = torch.where(bw_iteration > spectrum_outliers)[0]
+    # print(outlier_idx)
+    # print(len(outlier_idx))
 
     UE_data_rm = UE_table_database.drop(index=outlier_idx)
     IAB_data_rm = IAB_table_database.drop(index=outlier_idx)
     # IAB_graph_rm = IAB_graph_database.pop(outlier_idx[0])
     IAB_graph_rm = delete_multiple_element(IAB_graph_database, outlier_idx)
-    print(len(IAB_graph_rm))
-    print(UE_data_rm)
+    # print(len(IAB_graph_rm))
+    # print(UE_data_rm)
 
     if isPlot:
         # outlier box plot
@@ -87,10 +88,10 @@ def main():
     # path_UE = main_path + '/database/DynamicTopology/e6_m20_d3/UE_database.csv'
     # path_IAB = main_path + '/database/DynamicTopology/e6_m20_d3/IAB_database.csv'
 
-    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v3/raw/'
-    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v2/processed/'
-    path_UE = main_path + '/database/DynamicTopology/data_v3/UE_database.csv'
-    path_IAB = main_path + '/database/DynamicTopology/data_v3/IAB_database.csv'
+    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v4/raw/'
+    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v4/processed/'
+    path_UE = main_path + '/database/DynamicTopology/data_v4/UE_database.csv'
+    path_IAB = main_path + '/database/DynamicTopology/data_v4/IAB_database.csv'
 
     UE_table_database, IAB_table_database, IAB_graph_database = \
         datap.load_datasets(path_ue_table=path_UE,
@@ -104,6 +105,12 @@ def main():
     print(IAB_table_database)
     print(IAB_table_database.shape)
 
+    for i in range(0, 5):
+        data = IAB_graph_database[i]
+        g = torch_geometric.utils.to_networkx(data)
+        plt.figure()
+        nx.draw(g)
+        plt.show()
 
     capacity, efficiency = get_cap_eff_data(UE_table_database, IAB_table_database)
     tot_capacity = torch.sum(capacity, dim=(1, 2))
@@ -111,15 +118,17 @@ def main():
     print(f'Average Capacity: {torch.mean(tot_capacity)}')
     print(f'Average Efficiency: {torch.mean(mean_efficiency)}')
 
-    UE_data_rm, IAB_data_rm, IAB_graph_rm = \
-        remove_outlier_idx(UE_table_database, IAB_table_database,IAB_graph_database, isPlot=False)
-    print(UE_data_rm)
-    print(IAB_data_rm)
+    # UE_data_rm, IAB_data_rm, IAB_graph_rm = \
+    #     remove_outlier_spectrum(UE_table_database, IAB_table_database,IAB_graph_database, isPlot=True)
+    # print(UE_data_rm)
+    # print(IAB_data_rm)
 
-    # Split dataset
-    train_ue, valid_ue, test_ue = datap.data_split(np.array(UE_data_rm), is_all=True)
-    tarin_iab, valid_iab, test_iab = datap.data_split(np.array(IAB_data_rm), is_all=True)
-    train_iab_graph, test_iab_graph, test_iab_graph = datap.data_split(IAB_graph_rm, is_all=True)
+
+
+    # # Split dataset
+    # train_ue, valid_ue, test_ue = datap.data_split(np.array(UE_data_rm), is_all=True)
+    # tarin_iab, valid_iab, test_iab = datap.data_split(np.array(IAB_data_rm), is_all=True)
+    # train_iab_graph, test_iab_graph, test_iab_graph = datap.data_split(IAB_graph_rm, is_all=True)
 
 
 
