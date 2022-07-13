@@ -18,13 +18,15 @@ def load_model(mdl, folder, epoch):
 
 
 # fair_access_n_backhaul
-def fair_access_n_backhaul(test_UE, test_IAB, iab_div):
-    minibatch_size = test_UE.shape[0]
-    Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
+def fair_access_n_backhaul(Data_UEbatch, Data_IABbatch, minibatch_size, iab_div=0.5):
+    # minibatch_size = test_UE.shape[0]
+    # Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
     UE_eff, UE_capacity = datap.input_extract_for_cost(Data_UEbatch)
     IAB_eff, IAB_capacity = datap.input_extract_for_cost(Data_IABbatch)
     UE_bw = UE_capacity/UE_eff
     IAB_bw = IAB_capacity/IAB_eff
+    # UE_bw = UE_capacity
+    # IAB_bw = IAB_capacity
     IAB_capacity[:, -1, :] = 0
     # allocation for UE links
     UE_norm = torch.sum(UE_bw, dim=2)
@@ -64,10 +66,10 @@ def fair_access_n_backhaul(test_UE, test_IAB, iab_div):
 
 
 # Equal Resource allocation
-def equal_resource(test_UE, test_IAB):
-    minibatch_size = test_UE.shape[0]
+def equal_resource(Data_UEbatch, Data_IABbatch, minibatch_size):
+    # minibatch_size = test_UE.shape[0]
 
-    Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
+    # Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
     _, UE_capacity = datap.input_extract_for_cost(Data_UEbatch)
     _, IAB_capacity = datap.input_extract_for_cost(Data_IABbatch)
     IAB_capacity[:, -1, :] = 0
@@ -79,12 +81,12 @@ def equal_resource(test_UE, test_IAB):
 
 
 # Out-of-Band like allocation
-def out_of_band_like(test_UE, test_IAB, split_factor=0.5):
-    minibatch_size = test_UE.shape[0]
+def split_spectrum(Data_UEbatch, Data_IABbatch, minibatch_size, split_factor=0.5):
+    # minibatch_size = test_UE.shape[0]
     backhaul_spectrum = split_factor
     access_spectrum = 1 - split_factor
 
-    Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
+    # Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
     _, UE_capacity = datap.input_extract_for_cost(Data_UEbatch)
     _, IAB_capacity = datap.input_extract_for_cost(Data_IABbatch)
     IAB_capacity[:, -1, :] = 0
@@ -102,11 +104,35 @@ def out_of_band_like(test_UE, test_IAB, split_factor=0.5):
     return pred
 
 
-# Optimal
-def optimal(test_UE, test_IAB):
-    minibatch_size = test_UE.shape[0]
+# Split spectrum - backhaul aware
+def split_spectrum_backhaul_aware(Data_UEbatch, Data_IABbatch, minibatch_size, split_factor=0.5):
+    # minibatch_size = test_UE.shape[0]
+    backhaul_spectrum = split_factor
+    access_spectrum = 1 - split_factor
 
-    Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
+    # Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
+    _, UE_capacity = datap.input_extract_for_cost(Data_UEbatch)
+    _, IAB_capacity = datap.input_extract_for_cost(Data_IABbatch)
+    IAB_capacity[:, -1, :] = 0
+
+    UE_link_indicator = UE_capacity / (UE_capacity + rp.eps)
+    IAB_link_indicator = IAB_capacity / (IAB_capacity + rp.eps)
+
+    UE_pred = UE_link_indicator / torch.sum(UE_link_indicator, dim=(1, 2)).view(-1, 1, 1)
+    IAB_pred = IAB_capacity / torch.sum(IAB_capacity, dim=(1, 2)).view(-1, 1, 1)
+
+    UE_pred = access_spectrum * UE_pred
+    IAB_pred = backhaul_spectrum * IAB_pred
+
+    pred = torch.cat((UE_pred, IAB_pred), dim=2)
+    return pred
+
+
+# Optimal
+def optimal(Data_UEbatch, Data_IABbatch, minibatch_size):
+    # minibatch_size = test_UE.shape[0]
+
+    # Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
     UE_eff, UE_capacity = datap.input_extract_for_cost(Data_UEbatch)
     IAB_eff, IAB_capacity = datap.input_extract_for_cost(Data_IABbatch)
     IAB_capacity[:, -1, :] = 0

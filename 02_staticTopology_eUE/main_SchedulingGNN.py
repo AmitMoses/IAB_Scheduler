@@ -62,10 +62,10 @@ def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
         train_iab = train_iab[p]
         train_iab_graph = [train_iab_graph[i] for i in p]
 
-        p = np.random.permutation(len(valid_iab_graph))
-        valid_ue = valid_ue[p]
-        valid_iab = valid_iab[p]
-        valid_iab_graph = [valid_iab_graph[i] for i in p]
+        # p = np.random.permutation(len(valid_iab_graph))
+        # valid_ue = valid_ue[p]
+        # valid_iab = valid_iab[p]
+        # valid_iab_graph = [valid_iab_graph[i] for i in p]
 
         # # === Batch division
         # print('before DataLoader')
@@ -84,9 +84,12 @@ def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
             # === Extract features for table datasets
             Train_UEbatch, Train_IABbatch, Train_UEidx = datap.get_batch(np.copy(ue_data), np.copy(iab_data), 0,
                                                                          config['batch_size'])
+            Train_UEbatch_noise, Train_IABbatch_noise, _ = datap.get_batch(np.copy(ue_data), np.copy(iab_data), 0,
+                                                                         config['batch_size'], is_noise=True)
             # === auxiliary label
             label_Train = datap.label_extractor(Train_UEbatch, Train_IABbatch)
-            inputModel = torch.cat((Train_IABbatch, Train_UEbatch), dim=1)
+            # inputModel = torch.cat((Train_IABbatch, Train_UEbatch), dim=1)
+            inputModel = torch.cat((Train_IABbatch_noise, Train_UEbatch_noise), dim=1)
             inputModel = inputModel.to(device)
             Train_UEidx = Train_UEidx.to(device)
             iab_data_graph = iab_data_graph.to(device)
@@ -118,9 +121,11 @@ def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
             # === Extract features for table datasets
             Valid_UEbatch, Valid_IABbatch, Valid_UEidx = datap.get_batch(np.copy(ue_data), np.copy(iab_data), 0,
                                                                          len(valid_ue))
+            Valid_UEbatch_noise, Valid_IABbatch_noise, _ = datap.get_batch(np.copy(ue_data), np.copy(iab_data), 0,
+                                                                         len(valid_ue), is_noise=True)
             # === auxiliary label
             label_Train = datap.label_extractor(Valid_UEbatch, Valid_IABbatch)
-            inputModel = torch.cat((Valid_IABbatch, Valid_UEbatch), dim=1)
+            inputModel = torch.cat((Valid_IABbatch_noise, Valid_UEbatch_noise), dim=1)
             inputModel = inputModel.to(device)
             Valid_UEidx = Valid_UEidx.to(device)
             iab_data_graph = iab_data_graph.to(device)
@@ -229,27 +234,27 @@ def main():
                             raw_path_iab_graph=raw_paths_IAB_graph,
                             processed_path_iab_graph=processed_dir_IAB_graph)
     print(IAB_table_database)
-    print('k11')
+    print('k2')
     UE_table_rm_outlier, IAB_table_rm_outlier, IAB_graph_rm_outlier = \
         eda.remove_outlier_spectrum(UE_table_database, IAB_table_database, IAB_graph_database, isPlot=False)
     # UE_table_rm_outlier, IAB_table_rm_outlier, IAB_graph_rm_outlier = UE_table_database,IAB_table_database,IAB_graph_database
 
     model_config = {
-        'batch_size': 50,
-        'epochs': 150,
+        'batch_size': 20,
+        'epochs': 100,
         'learning_rate': 1e-3,
         'weight_decay': 0,
         'regulation_cost': 1e-3,
         'lr_change': True,
-        'if_save_model': False,
-        'save_model_dir': 'DNN_V1'
+        'if_save_model': True,
+        'save_model_dir': 'DNN_noise_V2'
     }
 
     lr_change_v = [True]
-    learn_v = [1e-3, 1e-4]
-    wd_v = [1e-6, 0]
-    regulation_cost_v = [1e-1, 1e-3]
-    batch_v = [50, 10, 5]
+    learn_v = [1e-3]
+    wd_v = [1e-8]
+    regulation_cost_v = [1e-3]
+    batch_v = [5]
 
     for l_c in lr_change_v:
         for l in learn_v:
@@ -264,7 +269,7 @@ def main():
                         model_config['weight_decay'] = w
                         model_config['regulation_cost'] = rc
                         model_config['lr_change'] = l_c
-                        NNmodel = nnmod.ResourceAllocation3DNN_v2()
+                        NNmodel = nnmod.ResourceAllocation3DNN_v3()
                         # NNmodel = nnmod.ResourceAllocation_GCNConv()
                         print(NNmodel)
                         print(model_config)
@@ -316,6 +321,25 @@ if __name__ == '__main__':
 
 # ResourceAllocation3DNN_v2
 # DNN_V1
+#     lr_change_v = [True] 50 -> 150
+#     learn_v = [1e-4]
+#     wd_v = [0]
+#     regulation_cost_v = [1e-3]
+#     batch_v = [5]
 # [Epoch]: 92, [Train Loss]: 3.707E-04 , [Train Capacity Loss]: 0.049657 Mbps | [Valid Loss]: 3.038E-03 , [Valid Capacity Loss]: 9.454494 Mbps
 # [Epoch]: 142, [Train Loss]: 4.185E-04 , [Train Capacity Loss]: 0.434011 Mbps | [Valid Loss]: 3.131E-03 , [Valid Capacity Loss]: 9.364378 Mbps
 # [Epoch]: 150, [Train Loss]: 4.536E-04 , [Train Capacity Loss]: 0.600925 Mbps | [Valid Loss]: 3.214E-03 , [Valid Capacity Loss]: 9.712662 Mbps
+
+# ResourceAllocation3DNN_v3
+# DNN_noise_V1
+#     lr_change_v = [True] 50 -> 150
+#     learn_v = [1e-4]
+#     wd_v = [0]
+#     regulation_cost_v = [1e-3]
+#     batch_v = [5]
+# [Epoch]: 48, [Train Loss]: 5.406E-04 , [Train Capacity Loss]: 0.407943 Mbps | [Valid Loss]: 5.805E-03 , [Valid Capacity Loss]: 12.621990 Mbps
+# [Epoch]: 75, [Train Loss]: 2.477E-03 , [Train Capacity Loss]: 0.989430 Mbps | [Valid Loss]: 4.781E-03 , [Valid Capacity Loss]: 11.884037 Mbps
+# [Epoch]: 76, [Train Loss]: 5.981E-04 , [Train Capacity Loss]: 0.442445 Mbps | [Valid Loss]: 4.913E-03 , [Valid Capacity Loss]: 12.282276 Mbps
+# [Epoch]: 89, [Train Loss]: 1.254E-03 , [Train Capacity Loss]: 0.914574 Mbps | [Valid Loss]: 4.874E-03 , [Valid Capacity Loss]: 12.173167 Mbps
+# [Epoch]: 95, [Train Loss]: 8.266E-04 , [Train Capacity Loss]: 1.178462 Mbps | [Valid Loss]: 4.731E-03 , [Valid Capacity Loss]: 12.385472 Mbps
+# [Epoch]: 100, [Train Loss]: 1.231E-03 , [Train Capacity Loss]: 19.483631 Mbps | [Valid Loss]: 5.141E-03 , [Valid Capacity Loss]: 12.428638 Mbps

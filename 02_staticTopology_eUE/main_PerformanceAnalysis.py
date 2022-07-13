@@ -1,5 +1,6 @@
 __author__ = 'Amit'
 
+import matplotlib.pyplot as plt
 import torch
 import pandas as pd
 import numpy as np
@@ -10,30 +11,13 @@ import p_RadioParameters as rp
 from torch_geometric.loader import DataLoader
 import main_EDA as eda
 import f_schedulers as scheduler
+import seaborn as sns
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def main():
     # Load Data
-    # data_path = '../../database/ConstTopology/10000 samples'
-    # data_path = '../database/DynamicTopology/10000 samples max 20/'
-    # data_path = '../database/DynamicTopology/e6_m20_d2/'
-    #
-    # path_IAB = data_path + '/IAB_database.csv'
-    # path_UE = data_path + '/UE_database.csv'
-    #
-    # IAB_database = pd.read_csv(path_IAB)
-    # UE_database = pd.read_csv(path_UE)
-    # test_UE = np.array(UE_database[9000:10000])
-    # test_IAB = np.array(IAB_database[9000:10000])
-    # print('one hop')
-    # main_path = '../'
-    # raw_paths_IAB_graph = main_path + '/GraphDataset/data/raw/'
-    # processed_dir_IAB_graph = main_path + '/GraphDataset/data/processed/'
-    # path_UE = main_path + '/database/DynamicTopology/e6_m20_d3/UE_database.csv'
-    # path_IAB = main_path + '/database/DynamicTopology/e6_m20_d3/IAB_database.csv'
-
     print('multi-hop1')
     main_path = '../'
     raw_paths_IAB_graph = main_path + '/GraphDataset/data_v4/raw/'
@@ -50,12 +34,13 @@ def main():
     UE_table_rm_outlier, IAB_table_rm_outlier, IAB_graph_rm_outlier = \
         eda.remove_outlier_spectrum(UE_table_database, IAB_table_database, IAB_graph_database, isPlot=False)
 
-    _, _, test_ue = datap.data_split(np.array(UE_table_rm_outlier), is_all=True)
-    _, _, test_iab = datap.data_split(np.array(IAB_table_rm_outlier), is_all=True)
-    _, _, test_iab_graph = datap.data_split(IAB_graph_rm_outlier, is_all=True)
+    # _, _, test_ue = datap.data_split(np.array(UE_table_rm_outlier), is_all=True)
+    # _, _, test_iab = datap.data_split(np.array(IAB_table_rm_outlier), is_all=True)
+    # _, _, test_iab_graph = datap.data_split(IAB_graph_rm_outlier, is_all=True)
 
-    modelV0 = nna.load_model(nnmod.ResourceAllocation3DNN_v2(),
-                          'DNN_V1', 150)
+    _, test_ue, _ = datap.data_split(np.array(UE_table_rm_outlier), is_all=True)
+    _, test_iab, _ = datap.data_split(np.array(IAB_table_rm_outlier), is_all=True)
+    _, test_iab_graph, _ = datap.data_split(IAB_graph_rm_outlier, is_all=True)
 
     # common data processing
     minibatch_size = test_ue.shape[0]
@@ -68,47 +53,191 @@ def main():
         # === Extract features for table datasets
         Test_UEbatch, Test_IABbatch, Test_UEidx = \
             datap.get_batch(np.copy(ue_data), np.copy(iab_data), 0, minibatch_size)
+        Test_UEbatch_noise, Test_IABbatch_noise, _ = \
+            datap.get_batch(np.copy(ue_data), np.copy(iab_data), 0, minibatch_size, is_noise=True)
         # === auxiliary label
         label_Test = datap.label_extractor(Test_UEbatch, Test_IABbatch)
-        inputModel = torch.cat((Test_IABbatch, Test_UEbatch), dim=1)
+        inputModel = torch.cat((Test_UEbatch_noise, Test_IABbatch_noise), dim=1)
         inputModel = inputModel.to(device)
         Test_UEidx = Test_UEidx.to(device)
         iab_data_graph = iab_data_graph.to(device)
 
         # # model prediction
-        # test_pred = modelV0(inputModel, Test_UEidx, iab_data_graph)
-        # test_pred = modelV0(inputModel, Test_UEidx)
-        # test_pred = nna.simple_resource_allocation(test_ue, test_iab, iab_div=0.5)
-        # test_pred = scheduler.equal_resource(test_ue, test_iab)
-        # test_pred = scheduler.out_of_band_like(test_ue, test_iab)
-        # test_pred = scheduler.fair_access_n_backhaul(test_ue, test_iab, iab_div=0.5)
-        test_pred = scheduler.optimal(test_ue, test_iab)
+        modelV0 = scheduler.load_model(nnmod.ResourceAllocation3DNN_v3(),
+                                       'DNN_noise_V1', 1)
+        # modelV1 = scheduler.load_model(nnmod.ResourceAllocation_GCNConv(),
+        #                                'gnn_V1', 150)
     # ==========================================================================
 
+        Average_Allocation_Ability = []
+        Average_Difference, Average_Difference_ue, Average_Difference_iab = [], [], []
+        Average_Unfulfilled_UE_Links, Average_Unfulfilled_IAB_Links = [], []
+        Bandwidth_Usage = []
+        Network_efficiency = []
 
-        # label extractor
-        UE_pred = test_pred[:, :, :40]  # removes IABs
-        IAB_pred = test_pred[:, :, 40:42]  # removes UEs
-        UE_efficiency, UE_capacity = datap.input_extract_for_cost(Test_UEbatch)
-        IAB_efficiency, IAB_capacity = datap.input_extract_for_cost(Test_IABbatch)
-        IAB_capacity[:, -1, :] = 0
-        efficiency = torch.cat((UE_efficiency, IAB_efficiency), dim=2)
-        capacity = torch.cat((UE_capacity, IAB_capacity), dim=2)
+        Average_Allocation_Ability_v = []
+        Average_Difference_v, Average_Difference_ue_v, Average_Difference_iab_v = [], [], []
+        Average_Unfulfilled_UE_Links_v, Average_Unfulfilled_IAB_Links_v = [], []
+        Bandwidth_Usage_v = []
+        Network_efficiency_v = []
 
-        # Bars plot: Capacity (UL+DL): Requested vs Allocation
-        # plot
-        cap, capCost = nna.cap_req_vs_alloc_bars(capacity, efficiency, test_pred)
+        # schedulers = [scheduler.equal_resource, scheduler.split_spectrum, scheduler.split_spectrum_backhaul_aware,
+        #               scheduler.fair_access_n_backhaul, modelV0, scheduler.optimal]
+        # schedulers_list = ['ERA', 'SS', 'FAnB', 'SS-BA', 'DNN', 'Optimal']
+        schedulers = [modelV0]
+        schedulers_list = ['DNN']
+        for method in schedulers:
+            if method == modelV0:
+                method.eval()
+                test_pred = modelV0(inputModel, Test_UEidx)
+            # elif method == modelV1:
+            #     test_pred = modelV1(inputModel, Test_UEidx, iab_data_graph)
+            else:
+                test_pred = method(Test_IABbatch_noise, Test_UEbatch_noise, minibatch_size)
 
-        # Bars plot: Average unfulfilled links
-        # Average unfulfilled links
-        unfil_links = nna.unfulfilled_links_bars(UE_capacity, UE_efficiency, UE_pred)
+            # label extractor
+            UE_pred = test_pred[:, :, :40]  # removes IABs
+            IAB_pred = test_pred[:, :, 40:42]  # removes UEs
+            UE_efficiency, UE_capacity = datap.input_extract_for_cost(Test_UEbatch)
+            IAB_efficiency, IAB_capacity = datap.input_extract_for_cost(Test_IABbatch)
+            IAB_capacity[:, -1, :] = 0
+            efficiency = torch.cat((UE_efficiency, IAB_efficiency), dim=2)
+            capacity = torch.cat((UE_capacity, IAB_capacity), dim=2)
 
-        # Scores
-        print('Average Allocation Ability', nna.allocation_ability(cap, capCost), '%')
-        print('Average Difference', np.mean(capCost), '[Mbps]')
-        print('Average Unfulfilled Links:', np.mean(unfil_links))
 
-        break
+            # BW usage
+            BW_usage = nna.bandwidth_usage(capacity, efficiency, test_pred)
+
+            # System efficiency
+            sys_eff = nna.network_efficiency(capacity, efficiency, test_pred)
+
+            # Bars plot: Capacity (UL+DL): Requested vs Allocation
+            # plot
+            cap, capCost = nna.cap_req_vs_alloc_bars(capacity, efficiency, test_pred, is_plot=False)
+
+            # ue only
+            cap_ue, capCost_ue = nna.cap_req_vs_alloc_bars(UE_capacity, UE_efficiency, UE_pred, is_plot=False)
+            #iab only
+            cap_iab, capCost_iab = nna.cap_req_vs_alloc_bars(IAB_capacity, IAB_efficiency, IAB_pred, is_plot=False)
+
+            # Bars plot: Average unfulfilled links
+            # Average unfulfilled links - UE
+            ue_unfil_links = nna.unfulfilled_links_bars(UE_capacity, UE_efficiency, UE_pred, is_plot=False)
+            # Average unfulfilled links - IAB
+            iab_unfil_links = nna.unfulfilled_links_bars(IAB_capacity, IAB_efficiency, IAB_pred, is_plot=False, is_access=False)
+
+            # Scores
+            print(method)
+            print('Average Allocation Ability:      ', nna.allocation_ability(cap, capCost), '%')
+            print('Average Difference:              ', np.mean(capCost), '[Mbps]')
+            print('Average Difference - UE:         ', np.mean(capCost_ue), '[Mbps]')
+            print('Average Difference - IAB:        ', np.mean(capCost_iab), '[Mbps]')
+            print('Average Unfulfilled UE Links:    ', np.mean(ue_unfil_links))
+            print('Average Unfulfilled IAB Links:   ', np.mean(iab_unfil_links))
+            print('Bandwidth Usage:                 ', float(torch.mean(BW_usage)), '[MHz]')
+            print('Network efficiency:              ', float(torch.mean(sys_eff)), '[Mpbs/Hz]')
+            print('--------------------------------------------------')
+
+            Average_Allocation_Ability.append(nna.allocation_ability(cap, capCost))
+            Average_Difference.append(np.mean(capCost))
+            Average_Difference_ue.append(np.mean(capCost_ue))
+            Average_Difference_iab.append(np.mean(capCost_iab))
+            Average_Unfulfilled_UE_Links.append(np.mean(ue_unfil_links))
+            Average_Unfulfilled_IAB_Links.append(np.mean(iab_unfil_links))
+            Bandwidth_Usage.append(float(torch.mean(BW_usage)))
+            Network_efficiency.append(float(torch.mean(sys_eff)))
+
+            Average_Difference_v.append(capCost)
+            Average_Difference_ue_v.append(capCost_ue)
+            Average_Difference_iab_v.append(capCost_iab)
+            Average_Unfulfilled_UE_Links_v.append(ue_unfil_links)
+            Average_Unfulfilled_IAB_Links_v.append(iab_unfil_links)
+            Bandwidth_Usage_v.append(BW_usage.detach().numpy())
+            Network_efficiency_v.append(sys_eff.detach().numpy())
+
+
+
+
+    # experiment plot
+    # nna.draw_access_backhaul_plot(Average_Unfulfilled_UE_Links, Average_Unfulfilled_IAB_Links, schedulers_list)
+
+    # Plots
+
+    # Average_Allocation_Ability
+    nna.draw_bar_plot(x=schedulers_list,
+                      y=Average_Allocation_Ability,
+                      title='Average Allocation Ability',
+                      x_label='[%]',
+                      y_label='Method',
+                      is_save=True)
+
+    # Average Difference
+    nna.seaborn_box_plot(x=schedulers_list,
+                      y=Average_Difference_v,
+                      title='Average Performance',
+                      x_label='[Mbps]',
+                      y_label='Method',
+                      is_save=True)
+
+    # # Average Difference UE
+    # nna.draw_bar_plot(x=schedulers_list,
+    #                   y=Average_Difference_ue,
+    #                   title='Average Performance - Access',
+    #                   x_label='[Mbps]',
+    #                   y_label='Method',
+    #                   is_save=True)
+    #
+    # # Average Difference IAB
+    # nna.draw_bar_plot(x=schedulers_list,
+    #                   y=Average_Difference_iab,
+    #                   title='Average Performance - Backhaul',
+    #                   x_label='[Mbps]',
+    #                   y_label='Method',
+    #                   is_save=True)
+    #
+    # # Average Unfulfilled UE Links
+    # nna.draw_bar_plot(x=schedulers_list,
+    #                  y=Average_Unfulfilled_UE_Links,
+    #                  title='Average Unfulfilled UE Links',
+    #                  x_label='[#]',
+    #                  y_label='Method',
+    #                  is_save=True)
+    #
+    # # Average Unfulfilled IAB Links
+    # nna.draw_bar_plot(x=schedulers_list,
+    #                  y=Average_Unfulfilled_IAB_Links,
+    #                  title='Average Unfulfilled IAB Links',
+    #                  x_label='[#]',
+    #                  y_label='Method',
+    #                   is_save=True)
+    #
+    # # Average Loss per link - Access
+    # ue_loos_per_link = nna.capacity_loss_per_link(Average_Unfulfilled_UE_Links, Average_Difference_ue)
+    # nna.draw_bar_plot(x=schedulers_list,
+    #                   y=ue_loos_per_link,
+    #                   title='Average Loss per link - Access',
+    #                   x_label='[Mbps]',
+    #                   y_label='Method',
+    #                   is_save=True)
+    #
+    # # Average Loss per link - Backhaul
+    # iab_loos_per_link = nna.capacity_loss_per_link(Average_Unfulfilled_IAB_Links, Average_Difference_iab)
+    # nna.draw_bar_plot(x=schedulers_list,
+    #                   y=iab_loos_per_link,
+    #                   title='Average Loss per link - Backhaul',
+    #                   x_label='[Mbps]',
+    #                   y_label='Method',
+    #                   is_save=True)
+    #
+    # # Bandwidth Usage
+    # nna.seaborn_box_plot(x=schedulers_list,
+    #                   y=Bandwidth_Usage_v,
+    #                   title='Bandwidth Usage',
+    #                   x_label='[MHz]',
+    #                   y_label='Method',
+    #                   is_save=True)
+
+
 
 
 if __name__ == '__main__':

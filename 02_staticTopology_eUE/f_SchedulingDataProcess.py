@@ -8,6 +8,7 @@ import sys
 sys.path.insert(1, '../GraphDataset/')
 import DataGenerator as data_gen
 from sklearn.model_selection import train_test_split
+import random
 
 
 def input_extract_for_cost(model_input):
@@ -142,10 +143,11 @@ def add_label_feature(mat, cqi_col_1, cqi_col_2):
     return mat
 
 
-def get_batch(UE_db, IAB_db, r_min, r_max):
+def get_batch(UE_db, IAB_db, r_min, r_max, is_noise=False):
     """
     take a desirable number of samples from the two databases and rearrange them (with the help from the usher function)
      to match the input of the NN model.
+    :param is_noise:
     :param UE_db:
     :param IAB_db:
     :param r_min:
@@ -173,7 +175,9 @@ def get_batch(UE_db, IAB_db, r_min, r_max):
     # print(UE_db.shape)
     for index, i in enumerate(range(r_min, r_max)):
         _, _, UE_mat_ = usher(UE_db, i)
-
+        if is_noise:
+            UE_mat_ = add_cqi_noise(UE_mat_)
+            UE_mat_ = add_rate_noise(UE_mat_)
         # Extended UE input to match maximum of 'maxUEperBS' UE per IAB
         UE_mat_extend_ = np.zeros((rp.IAB_num * rp.maxUEperBS, 5))
         line_index = 0
@@ -225,6 +229,23 @@ def get_batch(UE_db, IAB_db, r_min, r_max):
     # print(UeIndexVec[0, 0, :])
     # print(UeIndexVec_re[0, 0, :])
     return UE_batch_, IAB_batch_, UeIndexVec_re_
+
+
+def add_cqi_noise(table):
+    table_noise = np.copy(table)
+    noise_bin = np.random.binomial(n=4, p=0.5, size=len(table_noise[:, 2]))
+    noise = noise_bin - np.round(np.mean(noise_bin))
+    table_noise[:, 2] = np.clip(table_noise[:, 2] + noise, 1, 15)
+    noise_bin = np.random.binomial(n=4, p=0.5, size=len(table_noise[:, 2]))
+    noise = noise_bin - np.round(np.mean(noise_bin))
+    table_noise[:, 4] = np.clip(table_noise[:, 2] + noise, 1, 15)
+    return table_noise
+
+def add_rate_noise(table):
+    table_noise = np.copy(table)
+    table_noise[:, 1] = np.max(table_noise[:, 1] + np.random.normal(0, 5, len(table_noise[:, 1])), 0)
+    table_noise[:, 3] = np.max(table_noise[:, 3] + np.random.normal(0, 5, len(table_noise[:, 3])), 0)
+    return table_noise
 
 
 def topology_cost(output, label, Regulation=0):
