@@ -194,12 +194,12 @@ def capacity_loss_per_link(average_unfulfilled_links, average_difference):
 
 
 # Create bar plot
-def draw_bar_plot(x, y, title, x_label, y_label, is_save = False):
-    methods = x[0:-1]
-    results = y[0:-1]
+def draw_bar_plot(x, y, title, x_label, y_label, is_save=False):
+    methods = x
+    results = y
 
-    optimal_method = x[-1]
-    optimal_result = y[-1]
+    # optimal_method = x[-1]
+    # optimal_result = y[-1]
 
     plt.figure()
     bar_plot = sns.barplot(x=methods, y=results)
@@ -212,7 +212,7 @@ def draw_bar_plot(x, y, title, x_label, y_label, is_save = False):
                     xytext=(0, 9),
                     textcoords='offset points')
 
-    ax.axhline(optimal_result, ls='--')
+    # ax.axhline(optimal_result, ls='--')
     ax.set_ylabel(x_label)
     ax.set_xlabel(y_label)
     ax.set_title(title)

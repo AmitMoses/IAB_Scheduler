@@ -212,6 +212,9 @@ def get_batch(UE_db, IAB_db, r_min, r_max, is_noise=False):
 
         IAB_mat_ = IAB_db[i]
         IAB_mat_ = IAB_mat_.reshape((-1, 5))
+        if is_noise:
+            IAB_mat_ = add_cqi_noise(IAB_mat_)
+            IAB_mat_ = add_rate_noise(IAB_mat_)
         IAB_mat_temp = add_label_feature(np.copy(IAB_mat_), 2, 4)
         IAB_mat_temp = cqi2eff_in_matrix_col(IAB_mat_temp, 2)
         IAB_mat_temp = cqi2eff_in_matrix_col(IAB_mat_temp, 5)

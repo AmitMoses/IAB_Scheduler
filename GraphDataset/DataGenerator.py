@@ -69,7 +69,8 @@ def process(raw_paths, processed_dir, test=False):
 
 
 def get_iteration_index(path):
-    index = str(int(path.split('/')[-1].split('.')[0][9:]) - 1)
+    # index = str(int(path.split('/')[-1].split('.')[0][9:]) - 1)
+    index = str(int(path.split('\\')[-1].split('.')[0][9:]) - 1)
     if len(index) == 1:
         pad_index = '000' + index
     elif len(index) == 2:
@@ -213,7 +214,8 @@ def nan_check_raw(paths):
 
 def main():
     main_path = os.path.dirname(os.path.abspath(__file__))
-    raw_paths = main_path + '/data_v4/raw/'
+    # raw_paths = main_path + '/data_v4/raw/'
+    raw_paths = main_path + '\\data_v4\\raw\\'
     all_data_paths = glob(raw_paths + '*.csv')
     processed_dir = main_path + '/data_v4/processed/'
     Gdataset = process(raw_paths, processed_dir)

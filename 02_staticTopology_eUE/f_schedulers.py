@@ -23,10 +23,10 @@ def fair_access_n_backhaul(Data_UEbatch, Data_IABbatch, minibatch_size, iab_div=
     # Data_UEbatch, Data_IABbatch, Test_UEidx = datap.get_batch(test_UE, test_IAB, 0, minibatch_size)
     UE_eff, UE_capacity = datap.input_extract_for_cost(Data_UEbatch)
     IAB_eff, IAB_capacity = datap.input_extract_for_cost(Data_IABbatch)
-    UE_bw = UE_capacity/UE_eff
-    IAB_bw = IAB_capacity/IAB_eff
-    # UE_bw = UE_capacity
-    # IAB_bw = IAB_capacity
+    # UE_bw = UE_capacity/UE_eff
+    # IAB_bw = IAB_capacity/IAB_eff
+    UE_bw = UE_capacity
+    IAB_bw = IAB_capacity
     IAB_capacity[:, -1, :] = 0
     # allocation for UE links
     UE_norm = torch.sum(UE_bw, dim=2)

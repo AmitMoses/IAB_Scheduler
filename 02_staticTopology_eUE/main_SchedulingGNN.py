@@ -18,7 +18,8 @@ import os
 import main_EDA as eda
 
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0")
 
 
 def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
@@ -50,7 +51,7 @@ def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
         if config['lr_change'] and (epoch > 100):
             optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'] / 100,
                                          weight_decay=config['weight_decay'])
-        elif config['lr_change'] and (epoch > 50):
+        elif config['lr_change'] and (epoch > 15):
             optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'] / 10,
                                          weight_decay=config['weight_decay'])
 
@@ -241,7 +242,7 @@ def main():
 
     model_config = {
         'batch_size': 20,
-        'epochs': 100,
+        'epochs': 20,
         'learning_rate': 1e-3,
         'weight_decay': 0,
         'regulation_cost': 1e-3,
@@ -251,7 +252,7 @@ def main():
     }
 
     lr_change_v = [True]
-    learn_v = [1e-3]
+    learn_v = [1e-4]
     wd_v = [1e-8]
     regulation_cost_v = [1e-3]
     batch_v = [5]
@@ -269,7 +270,7 @@ def main():
                         model_config['weight_decay'] = w
                         model_config['regulation_cost'] = rc
                         model_config['lr_change'] = l_c
-                        NNmodel = nnmod.ResourceAllocation3DNN_v3()
+                        NNmodel = nnmod.ResourceAllocation3DNN_v4()
                         # NNmodel = nnmod.ResourceAllocation_GCNConv()
                         print(NNmodel)
                         print(model_config)
