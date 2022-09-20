@@ -212,10 +212,10 @@ def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
 def main():
 
     main_path = '../'
-    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v5/raw/'
-    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v5/processed/'
-    path_UE = main_path + '/database/DynamicTopology/data_v5/UE_database.csv'
-    path_IAB = main_path + '/database/DynamicTopology/data_v5/IAB_database.csv'
+    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v4/raw/'
+    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v4/processed/'
+    path_UE = main_path + '/database/DynamicTopology/data_v4/UE_database.csv'
+    path_IAB = main_path + '/database/DynamicTopology/data_v4/IAB_database.csv'
 
     UE_table_database, IAB_table_database, IAB_graph_database = \
         datap.load_datasets(path_ue_table=path_UE,
@@ -236,7 +236,7 @@ def main():
         'regulation_cost': 1e-3,
         'lr_change': True,
         'if_save_model': False,
-        'save_model_dir': 'S02_model_V2'
+        'save_model_dir': 'S02_model_V1'
     }
 
     lr_change_v = [True]
