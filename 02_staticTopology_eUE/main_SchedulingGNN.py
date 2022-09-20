@@ -41,9 +41,9 @@ def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
     # print(dataset_ue.shape)
     # print(dataset_iab.shape)
 
-    train_ue, valid_ue, _ = datap.data_split(np.array(dataset_ue), is_all=True, type='UE')
-    train_iab, valid_iab, _ = datap.data_split(np.array(dataset_iab), is_all=True, type='IAB')
-    train_iab_graph, valid_iab_graph, _ = datap.data_split(dataset_graph_iab, is_all=True, type='IAB-graph')
+    train_ue, valid_ue, _ = datap.data_split(np.array(dataset_ue), is_all=False, type='UE')
+    train_iab, valid_iab, _ = datap.data_split(np.array(dataset_iab), is_all=False, type='IAB')
+    train_iab_graph, valid_iab_graph, _ = datap.data_split(dataset_graph_iab, is_all=False, type='IAB-graph')
 
     # Training process
     for epoch in range(config['epochs']):
@@ -51,7 +51,7 @@ def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
         if config['lr_change'] and (epoch > 100):
             optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'] / 100,
                                          weight_decay=config['weight_decay'])
-        elif config['lr_change'] and (epoch > 15):
+        elif config['lr_change'] and (epoch > 50):
             optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'] / 10,
                                          weight_decay=config['weight_decay'])
 
@@ -212,22 +212,10 @@ def train(dataset_ue, dataset_iab, dataset_graph_iab, config, model):
 def main():
 
     main_path = '../'
-
-
-    # raw_paths_IAB_graph = main_path + '/GraphDataset/data/raw/'
-    # processed_dir_IAB_graph = main_path + '/GraphDataset/data/processed/'
-    # path_UE = main_path + '/database/DynamicTopology/e6_m20_d3/UE_database.csv'
-    # path_IAB = main_path + '/database/DynamicTopology/e6_m20_d3/IAB_database.csv'
-
-    # raw_paths_IAB_graph = main_path + '/GraphDataset/data_v2/raw/'
-    # processed_dir_IAB_graph = main_path + '/GraphDataset/data_v2/processed/'
-    # path_UE = main_path + '/database/DynamicTopology/data_v3/UE_database.csv'
-    # path_IAB = main_path + '/database/DynamicTopology/data_v3/IAB_database.csv'
-
-    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v4/raw/'
-    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v4/processed/'
-    path_UE = main_path + '/database/DynamicTopology/data_v4/UE_database.csv'
-    path_IAB = main_path + '/database/DynamicTopology/data_v4/IAB_database.csv'
+    raw_paths_IAB_graph = main_path + '/GraphDataset/data_v5/raw/'
+    processed_dir_IAB_graph = main_path + '/GraphDataset/data_v5/processed/'
+    path_UE = main_path + '/database/DynamicTopology/data_v5/UE_database.csv'
+    path_IAB = main_path + '/database/DynamicTopology/data_v5/IAB_database.csv'
 
     UE_table_database, IAB_table_database, IAB_graph_database = \
         datap.load_datasets(path_ue_table=path_UE,
@@ -242,13 +230,13 @@ def main():
 
     model_config = {
         'batch_size': 20,
-        'epochs': 20,
+        'epochs': 100,
         'learning_rate': 1e-3,
         'weight_decay': 0,
         'regulation_cost': 1e-3,
         'lr_change': True,
-        'if_save_model': True,
-        'save_model_dir': 'DNN_noise_V2'
+        'if_save_model': False,
+        'save_model_dir': 'S02_model_V2'
     }
 
     lr_change_v = [True]

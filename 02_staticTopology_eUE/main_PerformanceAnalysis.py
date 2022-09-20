@@ -24,6 +24,7 @@ def main():
     processed_dir_IAB_graph = main_path + '/GraphDataset/data_v4/processed/'
     path_UE = main_path + '/database/DynamicTopology/data_v4/UE_database.csv'
     path_IAB = main_path + '/database/DynamicTopology/data_v4/IAB_database.csv'
+
     print(f'Total Bandwidth: {rp.Total_BW}')
     UE_table_database, IAB_table_database, IAB_graph_database = \
         datap.load_datasets(path_ue_table=path_UE,
@@ -57,14 +58,14 @@ def main():
             datap.get_batch(np.copy(ue_data), np.copy(iab_data), 0, minibatch_size, is_noise=True)
         # === auxiliary label
         label_Test = datap.label_extractor(Test_UEbatch, Test_IABbatch)
-        inputModel = torch.cat((Test_UEbatch_noise, Test_IABbatch_noise), dim=1)
+        inputModel = torch.cat((Test_IABbatch_noise, Test_UEbatch_noise), dim=1)
         inputModel = inputModel.to(device)
         Test_UEidx = Test_UEidx.to(device)
         iab_data_graph = iab_data_graph.to(device)
 
         # # model prediction
-        modelV0 = scheduler.load_model(nnmod.ResourceAllocation3DNN_v3(),
-                                       'DNN_noise_V1', 1)
+        modelV0 = scheduler.load_model(nnmod.ResourceAllocation3DNN_v4(),
+                                       'DNN_noise_V2', 100)
         # modelV1 = scheduler.load_model(nnmod.ResourceAllocation_GCNConv(),
         #                                'gnn_V1', 150)
     # ==========================================================================
@@ -81,11 +82,11 @@ def main():
         Bandwidth_Usage_v = []
         Network_efficiency_v = []
 
-        # schedulers = [scheduler.equal_resource, scheduler.split_spectrum, scheduler.split_spectrum_backhaul_aware,
-        #               scheduler.fair_access_n_backhaul, modelV0, scheduler.optimal]
-        # schedulers_list = ['ERA', 'SS', 'FAnB', 'SS-BA', 'DNN', 'Optimal']
-        schedulers = [modelV0]
-        schedulers_list = ['DNN']
+        schedulers = [scheduler.equal_resource, scheduler.split_spectrum, scheduler.split_spectrum_backhaul_aware,
+                      scheduler.fair_access_n_backhaul, modelV0, scheduler.optimal]
+        schedulers_list = ['ERA', 'SS', 'FAnB', 'SS-BA', 'DNN', 'Optimal']
+        # schedulers = [modelV0]
+        # schedulers_list = ['DNN']
         for method in schedulers:
             if method == modelV0:
                 method.eval()
@@ -93,7 +94,8 @@ def main():
             # elif method == modelV1:
             #     test_pred = modelV1(inputModel, Test_UEidx, iab_data_graph)
             else:
-                test_pred = method(Test_IABbatch_noise, Test_UEbatch_noise, minibatch_size)
+                # test_pred = method(Test_IABbatch_noise, Test_UEbatch_noise, minibatch_size)
+                test_pred = method(Test_UEbatch_noise, Test_IABbatch_noise, minibatch_size)
 
             # label extractor
             UE_pred = test_pred[:, :, :40]  # removes IABs

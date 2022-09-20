@@ -31,7 +31,7 @@ train_feature = 6
 # IAB
 IAB_num = 10
 IAB_node_num = IAB_num - 1
-backhaul_num = 1
+backhaul_num = 2
 maxUEperBS = 20
 
 # UE

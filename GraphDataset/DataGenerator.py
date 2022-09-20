@@ -9,6 +9,7 @@ import os
 import sys
 sys.path.insert(1, '../02_staticTopology_eUE/')
 import p_RadioParameters as rp
+import collections
 
 
 
@@ -113,23 +114,45 @@ def _create_node_features_link(df):
     edge_attr = torch.cat((edge_Capacity, edge_eff, edge_bw), dim=0)
     # edge_attr = torch.reshape(edge_attr,(-1,num_link_feat))
     # print(edge_attr)
-    uplink_feat = torch.reshape(edge_attr[:, 0:num_IAB_nodes].T, (-1, num_uplink_feat))
-    downlink_feat = torch.reshape(edge_attr[:, num_IAB_nodes:].T, (-1, num_downlink_feat))
+    ul_idx, dl_idx = _find_ul_dl_index(df)
+    # uplink_feat = torch.reshape(edge_attr[:, 0:num_IAB_nodes].T, (-1, num_uplink_feat))
+    # downlink_feat = torch.reshape(edge_attr[:, num_IAB_nodes:].T, (-1, num_downlink_feat))
+    uplink_feat = torch.reshape(edge_attr[:, ul_idx].T, (-1, num_uplink_feat))
+    downlink_feat = torch.reshape(edge_attr[:, dl_idx].T, (-1, num_downlink_feat))
     # print(uplink_feat)
     # print(downlink_feat)
     node_feat_link = torch.concat((uplink_feat, downlink_feat), dim=1)
+
+    # temp = df[['EndNodes1', 'EndNodes2']].values.tolist()
     return node_feat_link
 
 
-def _create_node_features_type(df):
-    type_node = 1
-    type_donor = 2
+def _find_ul_dl_index(df):
+    link_list = df[['EndNodes1', 'EndNodes2']].values.tolist()
+    bank = []
+    ul_index = []
+    dl_index = []
+    for index, item in enumerate(link_list):
+        sort_item = list(np.sort(item))
+        if sort_item in bank:
+            dl_index.append(index)
+        else:
+            ul_index.append(index)
+            bank.append(sort_item)
+    return ul_index, dl_index
 
-    nodeID = torch.tensor(np.unique(np.concatenate((np.array(df.EndNodes1), np.array(df.EndNodes2)))))
+
+def _create_node_features_type(df):
+    type_node = 0
+    type_donor = 1
+
+    # nodeID = torch.tensor(np.unique(np.concatenate((np.array(df.EndNodes1), np.array(df.EndNodes2)))))
+    linkID = int(len(df)/2 + 1)
     # nodeID = torch.reshape(nodeID,(1,-1))
-    x = type_node * np.ones(len(nodeID))
+    # x = type_node * np.ones(len(linkID))
+    x = type_node * np.ones(linkID)
     x[-1] = type_donor
-    x = np.reshape(x, (len(nodeID), -1))
+    x = np.reshape(x, (linkID, -1))
     return torch.tensor(x)
 
 
@@ -215,9 +238,9 @@ def nan_check_raw(paths):
 def main():
     main_path = os.path.dirname(os.path.abspath(__file__))
     # raw_paths = main_path + '/data_v4/raw/'
-    raw_paths = main_path + '\\data_v4\\raw\\'
+    raw_paths = main_path + '\\data_v5\\raw\\'
     all_data_paths = glob(raw_paths + '*.csv')
-    processed_dir = main_path + '/data_v4/processed/'
+    processed_dir = main_path + '/data_v5/processed/'
     Gdataset = process(raw_paths, processed_dir)
     # Gdataset = load(processed_dir)
     print(Gdataset[0].x)
